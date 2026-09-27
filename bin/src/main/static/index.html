@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Passenger Live Bus Tracker</title>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- WebSockets & STOMP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <style>
+        body, html { height: 100%; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 100%; width: 100%; }
+        .card {
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: white; padding: 20px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25); width: 320px;
+        }
+        select, button {
+            width: 100%; padding: 10px; margin-top: 8px; border-radius: 6px;
+            border: 1px solid #ccc; font-size: 14px;
+        }
+        .status-badge {
+            display: inline-block; padding: 4px 8px; border-radius: 4px;
+            font-size: 12px; font-weight: bold; background: #22c55e; color: white;
+        }
+        .driver-link {
+            display: block; text-align: center; margin-top: 15px; color: #2563eb;
+            text-decoration: none; font-weight: bold; font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Passenger Tracker</h2>
+    <label for="busSelect"><strong>Select Active Bus:</strong></label>
+    <select id="busSelect" onchange="changeTrackedBus()">
+        <option value="">-- Waiting for active buses --</option>
+    </select>
+
+    <div style="margin-top: 15px;">
+        <p><strong>Status:</strong> <span id="busStatus" class="status-badge">SELECT BUS</span></p>
+        <p><strong>Next Stop:</strong> <span id="nextStop">Central Terminal</span></p>
+        <p><strong>Distance:</strong> <span id="distance">--</span> km</p>
+        <p><strong>ETA:</strong> <span id="eta">--</span> mins</p>
+    </div>
+
+    <a href="/driver.html" class="driver-link">Are you a Driver? Log in here →</a>
+</div>
+
+<div id="map"></div>
+
+<script>
+    let map, stompClient;
+    let busMarkers = {}; // Map busId -> Leaflet Marker
+    let currentSubscribedBus = null;
+    let busSubscription = null;
+
+    function initMap() {
+        map = L.map('map').setView([12.9716, 77.5946], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        connectWebSocket();
+        fetchActiveBuses();
+    }
+
+    function connectWebSocket() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function () {
+            // Listen for changes in active buses dynamically
+            stompClient.subscribe('/topic/active-buses', function (message) {
+                const activeBuses = JSON.parse(message.body);
+                updateBusDropdown(activeBuses);
+            });
+        });
+    }
+
+    function fetchActiveBuses() {
+        fetch('/api/buses/active')
+            .then(res => res.json())
+            .then(buses => updateBusDropdown(buses));
+    }
+
+    function updateBusDropdown(buses) {
+        const select = document.getElementById('busSelect');
+        const selectedVal = select.value;
+        select.innerHTML = '';
+
+        if (buses.length === 0) {
+            select.innerHTML = '<option value="">-- No active buses online --</option>';
+            return;
+        }
+
+        buses.forEach(busId => {
+            const opt = document.createElement('option');
+            opt.value = busId;
+            opt.innerText = "Bus: " + busId;
+            if (busId === selectedVal) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        if (!selectedVal && buses.length > 0) {
+            select.value = buses[0];
+            changeTrackedBus();
+        }
+    }
+
+    function changeTrackedBus() {
+        const selectedBus = document.getElementById('busSelect').value;
+        if (!selectedBus) return;
+
+        if (busSubscription) busSubscription.unsubscribe();
+
+        currentSubscribedBus = selectedBus;
+        document.getElementById('busStatus').innerText = "LIVE: " + selectedBus;
+
+        // Subscribe strictly to updates for selected bus
+        busSubscription = stompClient.subscribe('/topic/bus/' + selectedBus, function (message) {
+            const data = JSON.parse(message.body);
+            updateBusLocationOnMap(data);
+        });
+    }
+
+    function updateBusLocationOnMap(data) {
+        const pos = [data.latitude, data.longitude];
+
+        if (!busMarkers[data.busId]) {
+            busMarkers[data.busId] = L.marker(pos).addTo(map).bindPopup("Bus: " + data.busId);
+        } else {
+            busMarkers[data.busId].setLatLng(pos);
+        }
+
+        if (data.busId === currentSubscribedBus) {
+            map.panTo(pos);
+            document.getElementById('distance').innerText = data.distanceToNextStopKm;
+            document.getElementById('eta').innerText = data.etaMinutes;
+        }
+    }
+
+    window.onload = initMap;
+</script>
+</body>
+</html>

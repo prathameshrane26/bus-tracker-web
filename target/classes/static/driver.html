@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goa Transit - High Precision GPS</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        html, body { height: 100%; width: 100vw; overflow: hidden; background: #0f172a; color: #f8fafc; }
+        body { display: flex; flex-direction: column; }
+
+        header {
+            background: #1e293b;
+            padding: 12px 20px;
+            border-bottom: 2px solid #38bdf8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+            z-index: 1000;
+        }
+        .brand { font-size: 1.1rem; font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+        .driver-badge { background: #0f172a; color: #22c55e; border: 1px solid #22c55e; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; }
+        .live-indicator { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 6px; box-shadow: 0 0 8px #22c55e; }
+
+        .app-layout { display: flex; flex: 1; height: calc(100vh - 60px); position: relative; }
+
+        .sidebar {
+            width: 380px;
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 900;
+            overflow-y: auto;
+        }
+
+        .login-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 18px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white; font-size: 0.85rem; outline: none; }
+
+        .btn-action {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 800;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #38bdf8; color: #0f172a;
+        }
+
+        .map-container { flex: 1; height: 100%; position: relative; background: #0f172a; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 10; }
+
+        .card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 14px; }
+        .card-title { font-size: 0.75rem; text-transform: uppercase; color: #f59e0b; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+        .hud-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .hud-box { background: #1e293b; border: 1px solid #334155; padding: 10px; border-radius: 8px; text-align: center; }
+        .hud-val { font-size: 1.1rem; font-weight: 800; color: #38bdf8; }
+        .hud-lbl { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
+
+        .device-marker {
+            width: 18px;
+            height: 18px;
+            background: #2563eb;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #3b82f6;
+        }
+        .device-hud-tag {
+            position: absolute;
+            top: -24px;
+            background: #1e3a8a;
+            border: 1px solid #60a5fa;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .driver-bus-icon { display: flex; align-items: center; justify-content: center; transition: all 0.5s ease-out; }
+        .driver-emoji { font-size: 38px; filter: drop-shadow(0px 0px 8px #38bdf8); }
+
+        .bus-hud-tag {
+            position: absolute;
+            top: -24px;
+            background: #0f172a;
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">🧭 High Precision GPS Cockpit <span style="color:#94a3b8; font-size:0.8rem;">| Goa Fleet</span></div>
+        <div class="driver-badge" id="statusBadge"><span class="live-indicator"></span> STANDBY</div>
+    </header>
+
+    <div class="app-layout">
+        <div class="sidebar">
+            <div id="loginFormSection" class="login-card">
+                <div class="card-title">Driver Credentials</div>
+                <div class="form-group">
+                    <label>Bus / Vehicle ID</label>
+                    <input type="text" id="busId" value="BUS-101">
+                </div>
+                <div class="form-group">
+                    <label>Driver Password</label>
+                    <input type="password" id="password" value="driver123">
+                </div>
+                <div class="form-group">
+                    <label>Target Destination Route</label>
+                    <select id="destSelect">
+                        <option value="Panaji KTC Bus Stand">Panaji KTC Bus Stand</option>
+                        <option value="Margao KTC Bus Terminal">Margao KTC Bus Terminal</option>
+                        <option value="Mapusa Bus Stand">Mapusa Bus Stand</option>
+                        <option value="Vasco da Gama Station">Vasco da Gama Station</option>
+                        <option value="Cuncolim Bus Stand">Cuncolim Bus Stand</option>
+                    </select>
+                </div>
+                <button class="btn-action" onclick="loginAndStartConsole()">📡 START ACCURATE GPS</button>
+            </div>
+
+            <div id="activeDriverDashboard" class="hidden" style="display: flex; flex-direction: column; gap: 16px;">
+                <div class="card">
+                    <div class="card-title">Verified GPS Location</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #4ade80;" id="lblCurrentPlace">Locking GPS satellites...</div>
+                    <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">
+                        Accuracy Margin: <strong id="lblAccuracy" style="color:#f59e0b;">Measuring...</strong>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Location Override (If Wi-Fi/IP is inaccurate)</div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <input type="text" id="manualLocation" placeholder="Enter Place (e.g. Cuncolim)">
+                    </div>
+                    <button class="btn-action" style="padding:8px; font-size:0.78rem; background:#f59e0b;" onclick="overrideLocationByName()">📍 FORCE SET TO CUNCOLIM / PLACE</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Telemetry (5s Live Stream)</div>
+                    <div class="hud-grid">
+                        <div class="hud-box">
+                            <div class="hud-val" id="lblSpeed">0 km/h</div>
+                            <div class="hud-lbl">Speed</div>
+                        </div>
+                        <div class="hud-box">
+                            <div class="hud-val" id="lblHeading">0°</div>
+                            <div class="hud-lbl">Heading</div>
+                        </div>
+                        <div class="hud-box" style="grid-column: span 2;">
+                            <div class="hud-val" id="lblCoords" style="font-size: 0.85rem; color: #38bdf8;">--</div>
+                            <div class="hud-lbl">GPS Coordinates</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+        let stompClient = null;
+        let busId = "", password = "", destination = "";
+        let currentLat = null, currentLng = null, currentSpeed = 0, currentHeading = 0;
+        let myDeviceMarker = null, myBusMarker = null, accuracyCircle = null;
+
+        const map = L.map('map', { center: [15.1855, 73.9936], zoom: 15 });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        function createDeviceIcon() {
+            return L.divIcon({
+                className: 'driver-bus-icon',
+                html: `
+                    <div class="device-hud-tag">📍 DEVICE LOCATION</div>
+                    <div class="device-marker"></div>
+                `,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+        }
+
+        function createBusIcon(heading = 0) {
+            return L.divIcon({
+                className: 'driver-bus-icon',
+                html: `
+                    <div class="bus-hud-tag">🚌 BUS (${busId})</div>
+                    <div class="driver-emoji" style="transform: rotate(${heading}deg);">🚌</div>
+                `,
+                iconSize: [44, 44],
+                iconAnchor: [22, 22]
+            });
+        }
+
+        function loginAndStartConsole() {
+            busId = document.getElementById('busId').value.trim();
+            password = document.getElementById('password').value.trim();
+            destination = document.getElementById('destSelect').value;
+
+            if (!busId || !password) {
+                alert("Please enter Bus ID and Password");
+                return;
+            }
+
+            document.getElementById('loginFormSection').classList.add('hidden');
+            document.getElementById('activeDriverDashboard').classList.remove('hidden');
+
+            document.getElementById('statusBadge').innerHTML = '<span class="live-indicator"></span> HIGH-PRECISION GPS ACTIVE';
+
+            initWebSocket();
+            startHardwareGpsEngine();
+        }
+
+        function startHardwareGpsEngine() {
+            if (!("geolocation" in navigator)) {
+                alert("Geolocation is not supported on this device.");
+                return;
+            }
+
+            // High Precision Hardware Engine Configuration
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
+            navigator.geolocation.watchPosition(
+                pos => {
+                    const accuracy = pos.coords.accuracy; // in meters
+                    document.getElementById('lblAccuracy').innerText = `±${Math.round(accuracy)} meters`;
+
+                    currentLat = pos.coords.latitude;
+                    currentLng = pos.coords.longitude;
+                    currentSpeed = pos.coords.speed ? (pos.coords.speed * 3.6) : 0;
+                    currentHeading = pos.coords.heading || 0;
+
+                    updateMapVisuals(accuracy);
+                    reverseGeocodePlace(currentLat, currentLng);
+                },
+                err => {
+                    console.warn(`GPS Warning: ${err.message}`);
+                },
+                options
+            );
+
+            // Stream coordinates every 5 seconds
+            setInterval(() => {
+                if (currentLat !== null && currentLng !== null) {
+                    sendLocationUpdate();
+                }
+            }, 5000);
+        }
+
+        function updateMapVisuals(accuracy = 0) {
+            document.getElementById('lblSpeed').innerText = Math.round(currentSpeed) + ' km/h';
+            document.getElementById('lblHeading').innerText = Math.round(currentHeading) + '°';
+            document.getElementById('lblCoords').innerText = `${currentLat.toFixed(5)}, ${currentLng.toFixed(5)}`;
+
+            // Device Marker (Blue Dot)
+            if (!myDeviceMarker) {
+                myDeviceMarker = L.marker([currentLat, currentLng], { icon: createDeviceIcon() }).addTo(map);
+            } else {
+                myDeviceMarker.setLatLng([currentLat, currentLng]);
+            }
+
+            // Bus Marker
+            const bIcon = createBusIcon(currentHeading);
+            if (!myBusMarker) {
+                myBusMarker = L.marker([currentLat, currentLng], { icon: bIcon }).addTo(map);
+            } else {
+                myBusMarker.setLatLng([currentLat, currentLng]);
+                myBusMarker.setIcon(bIcon);
+            }
+
+            // Accuracy Circle
+            if (accuracy > 0) {
+                if (!accuracyCircle) {
+                    accuracyCircle = L.circle([currentLat, currentLng], { radius: accuracy, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15 }).addTo(map);
+                } else {
+                    accuracyCircle.setLatLng([currentLat, currentLng]);
+                    accuracyCircle.setRadius(accuracy);
+                }
+            }
+
+            map.panTo([currentLat, currentLng], { animate: true });
+        }
+
+        function overrideLocationByName() {
+            const query = document.getElementById('manualLocation').value.trim() || "Cuncolim";
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", Goa")}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        currentLat = parseFloat(data[0].lat);
+                        currentLng = parseFloat(data[0].lon);
+                        document.getElementById('lblCurrentPlace').innerText = `📍 ${data[0].display_name.split(',')[0]}`;
+                        document.getElementById('lblAccuracy').innerText = "Manual Override";
+                        updateMapVisuals(50);
+                        sendLocationUpdate();
+                    } else {
+                        alert("Location not found.");
+                    }
+                });
+        }
+
+        let lastGeocodeTime = 0;
+        function reverseGeocodePlace(lat, lng) {
+            const now = Date.now();
+            if (now - lastGeocodeTime < 10000) return;
+            lastGeocodeTime = now;
+
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.address) {
+                        const placeName = data.address.suburb || data.address.town || data.address.village || data.address.city || "Goa Region";
+                        document.getElementById('lblCurrentPlace').innerText = `📍 ${placeName}`;
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function sendLocationUpdate() {
+            if (stompClient && stompClient.connected && currentLat !== null) {
+                stompClient.send("/app/update-location", {}, JSON.stringify({
+                    busId: busId,
+                    latitude: currentLat,
+                    longitude: currentLng,
+                    speed: currentSpeed,
+                    heading: currentHeading,
+                    destination: destination
+                }));
+            }
+        }
+
+        function initWebSocket() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null;
+            stompClient.connect({}, () => {});
+        }
+
+        window.onload = function() {
+            setTimeout(() => map.invalidateSize(), 200);
+        };
+    </script>
+</body>
+</html>

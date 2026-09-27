@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KTC Admin Dashboard - Goa Transit</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: #0b132b; color: #f8fafc; padding: 30px 20px; min-height: 100vh; }
+        
+        .container { max-width: 1200px; margin: 0 auto; display: none; } /* Hidden until logged in */
+
+        /* Modal Admin Login Styling */
+        .login-overlay { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            background: #0b132b; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999; 
+        }
+        .login-card { 
+            background: #1c2541; 
+            border: 2px solid #f59e0b; 
+            padding: 32px; 
+            border-radius: 16px; 
+            width: 100%; 
+            max-width: 400px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+        }
+        .login-card h2 { 
+            font-size: 1.3rem; 
+            color: #f59e0b; 
+            margin-bottom: 6px; 
+            text-transform: uppercase; 
+            text-align: center; 
+            font-weight: 800; 
+        }
+        .login-card p { 
+            font-size: 0.8rem; 
+            color: #94a3b8; 
+            text-align: center; 
+            margin-bottom: 20px; 
+        }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        header h1 { font-size: 1.6rem; color: #38bdf8; font-weight: 800; }
+        header h1 span { color: #f59e0b; font-size: 0.85rem; text-transform: uppercase; display: block; font-weight: 600; }
+        
+        .header-btns { display: flex; gap: 10px; }
+        .nav-btn { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            background: #1c2541; 
+            color: #f8fafc; 
+            text-decoration: none; 
+            padding: 10px 16px; 
+            border-radius: 8px; 
+            font-size: 0.88rem; 
+            font-weight: 600; 
+            border: 1px solid #3a506b; 
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+        .logout-btn { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #f87171; cursor: pointer; }
+        .logout-btn:hover { background: #dc2626; color: white; border-color: #dc2626; }
+
+        .status-alert { display: none; padding: 14px 18px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; margin-bottom: 20px; }
+        .status-alert.success { display: block; background: #065f46; color: #34d399; border: 1px solid #10b981; }
+        .status-alert.error { display: block; background: #991b1b; color: #fca5a5; border: 1px solid #ef4444; }
+
+        .layout-grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+        .card { background: #1c2541; border: 1px solid #3a506b; border-radius: 16px; padding: 24px; }
+        .card h2 { font-size: 1.1rem; color: #f59e0b; margin-bottom: 16px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+
+        .form-group { margin-bottom: 14px; }
+        label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; }
+        input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #3a506b; background: #0b132b; color: #f8fafc; font-size: 0.88rem; outline: none; }
+        input:focus, select:focus { border-color: #f59e0b; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .submit-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #0284c7; color: white; font-weight: 700; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
+        .submit-btn:hover { background: #0369a1; }
+        .submit-btn:disabled { background: #475569; cursor: not-allowed; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #3a506b; font-size: 0.85rem; }
+        th { color: #94a3b8; text-transform: uppercase; font-size: 0.72rem; background: #0b132b; }
+        
+        .type-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; margin-bottom: 4px; }
+        .badge-shuttle { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+        .badge-local { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+        .route-path { font-size: 0.85rem; color: #f8fafc; font-weight: 600; }
+        .route-stops { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; line-height: 1.3; background: #0b132b; padding: 6px; border-radius: 6px; }
+
+        .delete-btn { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .delete-btn:hover { background: #dc2626; color: white; }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Authentication Modal -->
+    <div id="loginModal" class="login-overlay">
+        <div class="login-card">
+            <h2>⚙️ KTC Control Login</h2>
+            <p>Kadamba Transport Corporation Administration</p>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username (वापरपी नांव)</label>
+                    <input type="text" id="loginUser" placeholder="Enter admin username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password (पासवर्ड)</label>
+                    <input type="password" id="loginPass" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="submit-btn">Login to Control Dashboard</button>
+                <div id="loginError" style="color: #f87171; font-size: 0.8rem; margin-top: 10px; text-align: center; display: none;">❌ Invalid Username or Password</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Protected Main Admin Dashboard Container -->
+    <div class="container" id="adminContainer">
+        <header>
+            <h1>⚙️ Schedule Control Manager <span>Kadamba Transport Corporation (Goa)</span></h1>
+            <div class="header-btns">
+                <a href="index.html" class="nav-btn">🗺️ Live Tracker Page</a>
+                <button onclick="handleLogout()" class="nav-btn logout-btn">🚪 Logout</button>
+            </div>
+        </header>
+
+        <div id="statusAlert" class="status-alert"></div>
+
+        <div class="layout-grid">
+            <div class="card">
+                <h2>➕ Add Route Schedule</h2>
+                <form id="scheduleForm" onsubmit="saveScheduleToDb(event)">
+                    <div class="form-group">
+                        <label>Bus Identification ID (गाडी नंबर)</label>
+                        <input type="text" id="busId" placeholder="e.g. GA-03-X-105" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Driver Name (चालकाचें नांव)</label>
+                        <input type="text" id="driverName" placeholder="e.g. Prakash Sawant" required>
+                    </div>
+                    <!-- Added Driver Email Field -->
+                    <div class="form-group">
+                        <label>Driver Contact Email (चालकाचो ईमेल)</label>
+                        <input type="email" id="driverEmail" placeholder="e.g. driver@ktcgoa.in" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Route Title</label>
+                        <input type="text" id="routeName" placeholder="e.g. Panaji-Margao Direct Shuttle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Bus Service Category</label>
+                        <select id="busType">
+                            <option value="Non-AC Express Shuttle">Non-AC Express Shuttle (Direct Point-to-Point)</option>
+                            <option value="Local Bus">Local Bus (All Intermediate Village Stops)</option>
+                            <option value="KTC Electric AC Shuttle">KTC Electric AC Shuttle (Point-to-Point)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Terminal (सुरवातीचे स्थानक)</label>
+                        <select id="startLocation" required>
+                            <option value="Panaji KTC Bus Stand">Panaji KTC Bus Stand</option>
+                            <option value="Margao KTC Bus Terminal">Margao KTC Bus Terminal</option>
+                            <option value="Calangute Beach Terminal">Calangute Beach Terminal</option>
+                            <option value="Vasco da Gama Railway Station">Vasco da Gama Railway Station</option>
+                            <option value="Mapusa Bus Stand">Mapusa Bus Stand</option>
+                            <option value="Dabolim International Airport">Dabolim International Airport</option>
+                            <option value="Manohar International Airport (Mopa)">Manohar International Airport (Mopa)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Destination Terminal (निमाणे स्थानक)</label>
+                        <select id="destinationLocation" required>
+                            <option value="Margao KTC Bus Terminal">Margao KTC Bus Terminal</option>
+                            <option value="Panaji KTC Bus Stand">Panaji KTC Bus Stand</option>
+                            <option value="Calangute Beach Terminal">Calangute Beach Terminal</option>
+                            <option value="Vasco da Gama Railway Station">Vasco da Gama Railway Station</option>
+                            <option value="Mapusa Bus Stand">Mapusa Bus Stand</option>
+                            <option value="Dabolim International Airport">Dabolim International Airport</option>
+                            <option value="Manohar International Airport (Mopa)">Manohar International Airport (Mopa)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Departure (भायर सरपाची वेळ)</label>
+                            <input type="time" id="departureTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Arrival (पावपाची वेळ)</label>
+                            <input type="time" id="arrivalTime" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Operating Days</label>
+                        <input type="text" id="operatingDays" value="Mon, Tue, Wed, Thu, Fri, Sat, Sun" required>
+                    </div>
+                    <button type="submit" id="submitBtn" class="submit-btn">Save Schedule & Email Credentials</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>📋 Active Database Records</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bus & Driver Info</th>
+                            <th>Route & Stops Network</th>
+                            <th>Timings</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dbScheduleTable">
+                        <tr><td colspan="4" style="text-align:center;">Loading database records...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const LOCATION_COORDINATES = {
+            "Panaji KTC Bus Stand": [15.4989, 73.8278],
+            "Margao KTC Bus Terminal": [15.2736, 73.9581],
+            "Calangute Beach Terminal": [15.5407, 73.7553],
+            "Vasco da Gama Railway Station": [15.3982, 73.8113],
+            "Mapusa Bus Stand": [15.5937, 73.8142],
+            "Dabolim International Airport": [15.3808, 73.8314],
+            "Manohar International Airport (Mopa)": [15.7486, 73.8672]
+        };
+
+        const INTERMEDIATE_STOPS = {
+            "Panaji KTC Bus Stand-Margao KTC Bus Terminal": ["Bambolim Cross", "Agassaim Circle", "Cortalim Junction", "Verna Industrial Estate"],
+            "Margao KTC Bus Terminal-Panaji KTC Bus Stand": ["Verna Industrial Estate", "Cortalim Junction", "Agassaim Circle", "Bambolim Cross"],
+            "Panaji KTC Bus Stand-Mapusa Bus Stand": ["Porvorim Mall De Goa", "Guirim Cross"],
+            "Mapusa Bus Stand-Panaji KTC Bus Stand": ["Guirim Cross", "Porvorim Mall De Goa"],
+            "Panaji KTC Bus Stand-Calangute Beach Terminal": ["Porvorim", "Sangolda", "Candolim Circle"],
+            "Calangute Beach Terminal-Panaji KTC Bus Stand": ["Candolim Circle", "Sangolda", "Porvorim"],
+            "Panaji KTC Bus Stand-Vasco da Gama Railway Station": ["Bambolim", "Cortalim", "Chicalim"],
+            "Vasco da Gama Railway Station-Panaji KTC Bus Stand": ["Chicalim", "Cortalim", "Bambolim"]
+        };
+
+        // --- AUTHENTICATION MODULE ---
+        function checkAuth() {
+            if (sessionStorage.getItem('ktc_admin_auth') === 'true') {
+                document.getElementById('loginModal').style.display = 'none';
+                document.getElementById('adminContainer').style.display = 'block';
+                loadSchedulesFromDb();
+                initWebSocket();
+            } else {
+                document.getElementById('loginModal').style.display = 'flex';
+                document.getElementById('adminContainer').style.display = 'none';
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+
+            if (u === 'admin' && p === 'ktc@goa2026') {
+                sessionStorage.setItem('ktc_admin_auth', 'true');
+                document.getElementById('loginError').style.display = 'none';
+                checkAuth();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('ktc_admin_auth');
+            checkAuth();
+        }
+
+        // --- UI UTILITIES & SCHEDULE MANAGEMENT ---
+        function showAlert(msg, isError = false) {
+            const alert = document.getElementById('statusAlert');
+            alert.innerText = msg;
+            alert.className = `status-alert ${isError ? 'error' : 'success'}`;
+            if (!isError) {
+                setTimeout(() => { alert.className = 'status-alert'; }, 4000);
+            }
+        }
+
+        function formatRouteDisplay(schedule) {
+            const isShuttle = schedule.busType && schedule.busType.toLowerCase().includes('shuttle');
+            
+            if (isShuttle) {
+                return `
+                    <div class="route-path"><strong>${schedule.startLocation}</strong> &rarr; <strong>${schedule.destinationLocation}</strong></div>
+                    <div class="route-stops">⚡ <em>Direct Express Shuttle (Non-Stop)</em></div>
+                `;
+            } else {
+                const routeKey = `${schedule.startLocation}-${schedule.destinationLocation}`;
+                const stops = INTERMEDIATE_STOPS[routeKey] || ["Local Intermediate Stops"];
+                
+                return `
+                    <div class="route-path"><strong>${schedule.startLocation}</strong> &rarr; <strong>${schedule.destinationLocation}</strong></div>
+                    <div class="route-stops">📍 <strong>Stops:</strong> ${schedule.startLocation} &rarr; ${stops.join(' &rarr; ')} &rarr; ${schedule.destinationLocation}</div>
+                `;
+            }
+        }
+
+        function loadSchedulesFromDb() {
+            fetch('/api/admin/schedules')
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    const tbody = document.getElementById('dbScheduleTable');
+                    if (!data || data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">No bus schedules currently in Database.</td></tr>`;
+                        return;
+                    }
+
+                    tbody.innerHTML = data.map(s => {
+                        const isShuttle = s.busType && s.busType.toLowerCase().includes('shuttle');
+                        const badgeClass = isShuttle ? 'badge-shuttle' : 'badge-local';
+
+                        return `
+                            <tr id="row-${s.scheduleId}">
+                                <td>
+                                    <span class="type-badge ${badgeClass}">${s.busType || 'Local Bus'}</span><br>
+                                    <strong>${s.busId}</strong><br>
+                                    <span style="color:#94a3b8; font-size:0.75rem;">Driver: ${s.driverName || 'N/A'}</span><br>
+                                    <span style="color:#38bdf8; font-size:0.72rem;">✉️ ${s.driverEmail || 'No Email'}</span>
+                                </td>
+                                <td>${formatRouteDisplay(s)}</td>
+                                <td>🕒 ${s.departureTime} - ${s.arrivalTime}</td>
+                                <td><button class="delete-btn" onclick="deleteFromDb('${s.scheduleId}')">Delete</button></td>
+                            </tr>
+                        `;
+                    }).join('');
+                })
+                .catch(err => showAlert(`❌ Error fetching schedule data: ${err.message}`, true));
+        }
+
+        async function saveScheduleToDb(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Saving & Dispatching Email...';
+
+            const startLocName = document.getElementById('startLocation').value;
+            const coords = LOCATION_COORDINATES[startLocName] || [15.4989, 73.8278];
+
+            const payload = {
+                busId: document.getElementById('busId').value.trim(),
+                driverName: document.getElementById('driverName').value.trim(),
+                driverEmail: document.getElementById('driverEmail').value.trim(), // Send Driver Email Payload
+                routeName: document.getElementById('routeName').value.trim(),
+                startLocation: startLocName,
+                destinationLocation: document.getElementById('destinationLocation').value,
+                startLatitude: parseFloat(coords[0]),
+                startLongitude: parseFloat(coords[1]),
+                departureTime: document.getElementById('departureTime').value,
+                arrivalTime: document.getElementById('arrivalTime').value,
+                operatingDays: document.getElementById('operatingDays').value.trim(),
+                busType: document.getElementById('busType').value
+            };
+
+            try {
+                const res = await fetch('/api/admin/schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const resData = await res.json();
+
+                if (res.ok && resData.status === 'SUCCESS') {
+                    showAlert(`✅ ${resData.message}`);
+                    document.getElementById('scheduleForm').reset();
+                    loadSchedulesFromDb();
+                } else {
+                    showAlert(`❌ Database Error: ${resData.message || 'Save operation rejected'}`, true);
+                }
+            } catch (err) {
+                showAlert(`❌ Network Failure: ${err.message}`, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Save Schedule & Email Credentials';
+            }
+        }
+
+        function deleteFromDb(scheduleId) {
+            if (!confirm('Are you sure you want to remove this schedule record from the database?')) return;
+
+            fetch(`/api/admin/schedules/${scheduleId}`, { method: 'DELETE' })
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || 'Delete operation failed');
+                    return data;
+                })
+                .then(resData => {
+                    showAlert(`🗑️ ${resData.message || 'Schedule removed successfully.'}`);
+                    loadSchedulesFromDb();
+                })
+                .catch(err => showAlert(`❌ ${err.message}`, true));
+        }
+
+        function initWebSocket() {
+            const socket = new SockJS('/ws');
+            const stompClient = Stomp.over(socket);
+            stompClient.debug = null;
+
+            stompClient.connect({}, () => {
+                stompClient.subscribe('/topic/schedule-added', () => loadSchedulesFromDb());
+                stompClient.subscribe('/topic/schedule-deleted', () => loadSchedulesFromDb());
+            });
+        }
+
+        window.onload = checkAuth;
+    </script>
+</body>
+</html>

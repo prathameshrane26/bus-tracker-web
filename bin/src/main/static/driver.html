@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Driver Location Streamer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 320px; }
+        input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+        button { background: #2563eb; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .hidden { display: none; }
+        .status-box { background: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 15px; border-radius: 6px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <div id="authSection">
+        <h2>Driver Console</h2>
+        <input type="text" id="busId" placeholder="Bus ID (e.g. BUS-101)" value="BUS-101">
+        <input type="password" id="password" placeholder="Password" value="driver123">
+        <input type="text" id="driverName" placeholder="Driver Name (Optional)">
+        <button onclick="loginAndStart()">Start Broadcasting GPS</button>
+    </div>
+
+    <div id="trackingSection" class="hidden">
+        <div class="status-box">
+            <h3>📡 GPS Broadcasting Active</h3>
+            <p>Bus ID: <strong id="activeBusId">--</strong></p>
+            <p>Last Latitude: <span id="lat">--</span></p>
+            <p>Last Longitude: <span id="lng">--</span></p>
+        </div>
+        <button onclick="simulateDrive()" style="background: #059669; margin-top: 15px;">Simulate Drive Movement</button>
+    </div>
+</div>
+
+<script>
+    let stompClient;
+    let currentBusId = "";
+    let mockLat = 12.9200;
+    let mockLng = 77.5800;
+
+    function loginAndStart() {
+        const busId = document.getElementById('busId').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const driverName = document.getElementById('driverName').value.trim();
+
+        if (!busId || !password) {
+            alert("Please provide both Bus ID and Password");
+            return;
+        }
+
+        fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ busId: busId, password: password, driverName: driverName })
+        }).then(res => {
+            if (res.ok) {
+                currentBusId = busId;
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('trackingSection').classList.remove('hidden');
+                document.getElementById('activeBusId').innerText = busId;
+
+                connectWebSocketAndStream();
+                startDeviceGps();
+            } else {
+                alert("Login Failed: Invalid credentials");
+            }
+        });
+    }
+
+    function connectWebSocketAndStream() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function () {
+            sendLocation(mockLat, mockLng, 30.0);
+        });
+    }
+
+    function startDeviceGps() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const speed = pos.coords.speed ? pos.coords.speed * 3.6 : 25.0; // convert m/s to km/h
+                    sendLocation(lat, lng, speed);
+                },
+                (err) => console.log("GPS Position fallback enabled."),
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        }
+    }
+
+    function sendLocation(lat, lng, speed) {
+        document.getElementById('lat').innerText = lat.toFixed(4);
+        document.getElementById('lng').innerText = lng.toFixed(4);
+
+        if (stompClient && stompClient.connected) {
+            stompClient.send("/app/update-location", {}, JSON.stringify({
+                busId: currentBusId,
+                latitude: lat,
+                longitude: lng,
+                speed: speed
+            }));
+        }
+    }
+
+    function simulateDrive() {
+        mockLat += 0.002;
+        mockLng += 0.002;
+        sendLocation(mockLat, mockLng, 35.0);
+    }
+</script>
+</body>
+</html>
