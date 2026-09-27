@@ -18,54 +18,95 @@
         
         body { display: flex; flex-direction: column; }
 
-        header { background: #1c2541; padding: 14px 24px; border-bottom: 2px solid #f59e0b; display: flex; justify-content: space-between; align-items: center; z-index: 1000; height: 65px; flex-shrink: 0; }
-        header h1 { font-size: 1.35rem; color: #38bdf8; display: flex; align-items: center; gap: 10px; font-weight: 800; }
-        header h1 span.subtext { font-size: 0.8rem; color: #f59e0b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        header { 
+            background: #1c2541; 
+            padding: 10px 18px; 
+            border-bottom: 2px solid #f59e0b; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            z-index: 1000; 
+            min-height: 60px; 
+            flex-shrink: 0; 
+        }
+        header h1 { font-size: 1.2rem; color: #38bdf8; display: flex; align-items: center; gap: 8px; font-weight: 800; white-space: nowrap; }
+        header h1 span.subtext { font-size: 0.75rem; color: #f59e0b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .header-actions { display: flex; gap: 10px; align-items: center; }
-        .lang-btn { background: #0b132b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .lang-btn { background: #0b132b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 10px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.78rem; transition: all 0.2s; }
         .lang-btn:hover { background: #38bdf8; color: #0b132b; }
 
-        .admin-link { background: #0b132b; color: #f59e0b; text-decoration: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; border: 1px solid #f59e0b; transition: all 0.2s; }
+        .driver-link { background: #0b132b; color: #34d399; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; border: 1px solid #10b981; transition: all 0.2s; }
+        .driver-link:hover { background: #10b981; color: #0b132b; }
+
+        .admin-link { background: #0b132b; color: #f59e0b; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; border: 1px solid #f59e0b; transition: all 0.2s; }
         .admin-link:hover { background: #f59e0b; color: #0b132b; }
 
-        .app-layout { display: flex; flex: 1; width: 100%; height: calc(100vh - 65px); position: relative; overflow: hidden; }
-        .sidebar { width: 400px; min-width: 400px; background: #1c2541; border-right: 1px solid #3a506b; padding: 20px; overflow-y: auto; z-index: 900; }
+        .app-layout { display: flex; flex: 1; width: 100%; height: calc(100vh - 60px); position: relative; overflow: hidden; }
         
-        /* Fixed Map Dimensions Container */
+        .sidebar { 
+            width: 380px; 
+            min-width: 380px; 
+            background: #1c2541; 
+            border-right: 1px solid #3a506b; 
+            padding: 16px; 
+            overflow-y: auto; 
+            z-index: 900; 
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* Mobile Responsive Layout Switch */
+        @media (max-width: 768px) {
+            header h1 span.subtext { display: none; }
+            .header-actions { gap: 6px; }
+            .lang-btn, .driver-link, .admin-link { padding: 5px 8px; font-size: 0.72rem; }
+            
+            .app-layout { flex-direction: column-reverse; }
+            .sidebar { 
+                width: 100%; 
+                min-width: 100%; 
+                height: 45vh; 
+                border-right: none; 
+                border-top: 2px solid #3a506b; 
+                border-radius: 16px 16px 0 0;
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            }
+            .map-container { height: 55vh !important; }
+        }
+        
         .map-container { flex: 1; height: 100%; width: 100%; position: relative; background: #0b132b; }
-        #map { width: 100%; height: 100%; min-height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 10; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 10; }
 
-        .filter-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
-        .filter-card h2 { font-size: 0.95rem; color: #f59e0b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+        .filter-card h2 { font-size: 0.88rem; color: #f59e0b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }
-        select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #3a506b; background: #1c2541; color: #f8fafc; font-size: 0.85rem; outline: none; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }
+        select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #3a506b; background: #1c2541; color: #f8fafc; font-size: 0.82rem; outline: none; }
         select:focus { border-color: #f59e0b; }
 
-        .next-bus-banner { background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%); border: 1px solid #38bdf8; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
-        .next-bus-title { font-size: 0.72rem; text-transform: uppercase; color: #f59e0b; font-weight: 800; letter-spacing: 0.5px; }
-        .next-bus-time { font-size: 1.4rem; font-weight: 800; color: #ffffff; margin: 4px 0; }
-        .next-bus-sub { font-size: 0.78rem; color: #e0f2fe; }
+        .next-bus-banner { background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%); border: 1px solid #38bdf8; border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+        .next-bus-title { font-size: 0.7rem; text-transform: uppercase; color: #f59e0b; font-weight: 800; letter-spacing: 0.5px; }
+        .next-bus-time { font-size: 1.3rem; font-weight: 800; color: #ffffff; margin: 2px 0; }
+        .next-bus-sub { font-size: 0.75rem; color: #e0f2fe; }
 
-        .bus-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 12px; padding: 14px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+        .bus-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 12px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
         .bus-card:hover { border-color: #f59e0b; transform: translateY(-1px); }
 
-        .bus-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
-        .bus-id { font-weight: 800; color: #f8fafc; font-size: 1rem; }
+        .bus-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+        .bus-id { font-weight: 800; color: #f8fafc; font-size: 0.95rem; }
         
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 800; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; }
         .badge-shuttle { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
         .badge-local { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
         .badge-live { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
 
-        .route-info { font-size: 0.85rem; color: #f8fafc; font-weight: 600; margin-bottom: 6px; }
-        .stops-info { font-size: 0.75rem; color: #94a3b8; background: #1c2541; padding: 6px 10px; border-radius: 6px; margin-top: 6px; line-height: 1.3; }
+        .route-info { font-size: 0.82rem; color: #f8fafc; font-weight: 600; margin-bottom: 4px; }
+        .stops-info { font-size: 0.72rem; color: #94a3b8; background: #1c2541; padding: 5px 8px; border-radius: 6px; margin-top: 4px; line-height: 1.3; }
         
-        .timing-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #3a506b; }
+        .timing-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #3a506b; }
         .eta-highlight { color: #34d399; font-weight: 800; background: rgba(52, 211, 153, 0.1); padding: 2px 6px; border-radius: 4px; }
-        .no-results { text-align: center; color: #94a3b8; padding: 20px 10px; font-size: 0.88rem; }
+        .no-results { text-align: center; color: #94a3b8; padding: 16px 10px; font-size: 0.85rem; }
 
         /* Custom Emoji Marker Styling */
         .moving-bus-marker {
@@ -111,6 +152,7 @@
         <h1>🚌 Goan Transit <span class="subtext">| kadamba tracker</span></h1>
         <div class="header-actions">
             <button class="lang-btn" onclick="toggleLanguage()" id="langBtn">🌐 कोंकणी (Konkani)</button>
+            <a href="driver.html" class="driver-link" id="driverLinkText">👨‍✈️ Driver Login</a>
             <a href="admin.html" class="admin-link" id="adminLinkText">⚙️ KTC Control</a>
         </div>
     </header>
@@ -160,7 +202,7 @@
 
             <div id="nextBusBanner" class="next-bus-banner" style="display: none;"></div>
 
-            <h2 id="upcomingTitle" style="font-size: 0.85rem; color: #f59e0b; text-transform: uppercase; font-weight: 800; margin-bottom: 10px; letter-spacing: 0.5px;">Upcoming Buses</h2>
+            <h2 id="upcomingTitle" style="font-size: 0.8rem; color: #f59e0b; text-transform: uppercase; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.5px;">Upcoming Buses</h2>
             <div id="busList">
                 <div class="no-results">Fetching live schedules...</div>
             </div>
@@ -176,6 +218,7 @@
 
         const TRANSLATIONS = {
             EN: {
+                driverText: "👨‍✈️ Driver Login",
                 adminText: "⚙️ KTC Control",
                 searchTitle: "🔍 Search Route (Sodh-Aso)",
                 lblSource: "Source Terminal",
@@ -197,6 +240,7 @@
                 noBus: "No buses available on this path."
             },
             KN: {
+                driverText: "👨‍✈️ ड्रायव्हर लॉगिन",
                 adminText: "⚙️ प्रशासक नियंत्रण",
                 searchTitle: "🔍 रस्तो सोधा (मार्ग शोध)",
                 lblSource: "सुरवातीचे बस स्थानक (Source)",
@@ -219,16 +263,14 @@
             }
         };
 
-        // Initialize Leaflet Map Centered on Goa
         const map = L.map('map', {
             center: [15.3982, 73.8113],
             zoom: 11
         });
 
-        // Use Standard OpenStreetMap Tile Server
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
         const markers = {};
@@ -263,6 +305,7 @@
             document.getElementById('langBtn').innerText = currentLang === 'EN' ? '🌐 कोंकणी (Konkani)' : '🌐 English';
             
             const t = TRANSLATIONS[currentLang];
+            document.getElementById('driverLinkText').innerText = t.driverText;
             document.getElementById('adminLinkText').innerText = t.adminText;
             document.getElementById('searchTitle').innerText = t.searchTitle;
             document.getElementById('lblSource').innerText = t.lblSource;
@@ -477,7 +520,6 @@
         }
 
         window.onload = function() {
-            // Force Leaflet recalculation to render map tiles immediately
             setTimeout(() => {
                 map.invalidateSize();
             }, 200);
