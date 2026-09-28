@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Goa Local Bus - Registration & Operator Portal</title>
+    <title>Goa Local Bus - Permanent Schedule & Driver GPS Portal</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
@@ -41,7 +40,7 @@
         .nav-btn:hover { background: #38bdf8; color: #0b132b; }
 
         .container {
-            max-width: 1200px;
+            max-width: 1250px;
             margin: 20px auto;
             padding: 0 16px;
             display: grid;
@@ -49,7 +48,7 @@
             gap: 20px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 950px) {
             .container { grid-template-columns: 1fr; }
         }
 
@@ -103,6 +102,26 @@
 
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+        .day-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .day-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #0b132b;
+            border: 1px solid #3a506b;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            color: #cbd5e1;
+        }
+        .day-label input { width: auto; }
+
         .btn {
             width: 100%;
             padding: 10px;
@@ -119,8 +138,18 @@
         .btn-primary { background: #10b981; color: #0b132b; }
         .btn-primary:hover { background: #34d399; }
 
-        .btn-live { background: #38bdf8; color: #0b132b; }
-        .btn-live:hover { background: #7dd3fc; }
+        .gps-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .btn-gps-on { background: #10b981; color: #0b132b; }
+        .btn-gps-on:hover { background: #34d399; }
+
+        .btn-gps-off { background: #ef4444; color: #ffffff; }
+        .btn-gps-off:hover { background: #dc2626; }
 
         .btn-danger { background: #ef4444; color: #ffffff; padding: 4px 8px; font-size: 0.7rem; border-radius: 6px; width: auto; margin-top: 0; }
         .btn-danger:hover { background: #dc2626; }
@@ -147,7 +176,7 @@
             width: 10px;
             border-radius: 50%;
             display: inline-block;
-            background: #64748b;
+            background: #ef4444;
         }
         .status-dot.active { background: #10b981; box-shadow: 0 0 8px #10b981; }
 
@@ -161,6 +190,7 @@
             text-align: left;
             padding: 8px;
             border-bottom: 1px solid #3a506b;
+            vertical-align: top;
         }
         .bus-list-table th { color: #f59e0b; font-size: 0.7rem; text-transform: uppercase; }
 
@@ -181,12 +211,22 @@
         }
         .alert-success { background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; }
         .alert-info { background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #38bdf8; }
+
+        .days-tag {
+            font-size: 0.68rem;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>🚌 Local Bus Portal <span class="subtext">| Open Registration</span></h1>
+        <h1>🚌 Local Bus Portal <span class="subtext">| Schedule & GPS Control</span></h1>
         <div class="header-actions">
             <a href="index.html" class="nav-btn">🗺️ Public Transit Map</a>
         </div>
@@ -194,10 +234,10 @@
 
     <div class="container">
         
-        <!-- BUS REGISTRATION FORM CARD -->
+        <!-- BUS & WEEKLY SCHEDULE REGISTRATION FORM -->
         <div class="card">
             <div class="card-title">
-                📝 Register Local / Private Bus
+                📝 Register Permanent Route Schedule
                 <span class="no-pass-badge">🔓 Password-Free</span>
             </div>
 
@@ -211,14 +251,14 @@
                     </div>
                     <div class="form-group">
                         <label>Operator / Owner Name *</label>
-                        <input type="text" id="operatorName" placeholder="e.g., Souza Travels / Mandovi Express" required>
+                        <input type="text" id="operatorName" placeholder="e.g., Souza Travels" required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label>Origin Terminal *</label>
-                        <input type="text" id="startLocation" placeholder="e.g., Siolim Cross" required>
+                        <input type="text" id="startLocation" placeholder="e.g., Siolim Church" required>
                     </div>
                     <div class="form-group">
                         <label>Destination Terminal *</label>
@@ -227,14 +267,45 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Key Village / Intermediate Stops</label>
+                    <label>Key Village Stops</label>
                     <input type="text" id="intermediateStops" placeholder="e.g., Anjuna Cross, Vagator, Badem">
+                </div>
+
+                <!-- FULL WEEK OPERATING DAYS -->
+                <div class="form-group">
+                    <label>Weekly Operating Days *</label>
+                    <div class="day-checkboxes">
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Mon" checked> Mon</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Tue" checked> Tue</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Wed" checked> Wed</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Thu" checked> Thu</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Fri" checked> Fri</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Sat" checked> Sat</label>
+                        <label class="day-label"><input type="checkbox" name="operatingDays" value="Sun" checked> Sun</label>
+                    </div>
+                </div>
+
+                <!-- FULL DAY SHIFT & FREQUENCY -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Morning Departure *</label>
+                        <input type="time" id="startTime" value="06:30" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Night Departure *</label>
+                        <input type="time" id="endTime" value="20:30" required>
+                    </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Departure Time *</label>
-                        <input type="time" id="departureTime" required>
+                        <label>Service Frequency *</label>
+                        <select id="frequency">
+                            <option value="Every 15 mins">Every 15 Mins (High Frequency)</option>
+                            <option value="Every 30 mins" selected>Every 30 Mins (Regular)</option>
+                            <option value="Every 1 Hour">Every 1 Hour</option>
+                            <option value="Fixed Departures Only">Fixed Departure Times Only</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Service Type *</label>
@@ -246,50 +317,54 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">➕ Register & Add Route Schedule</button>
+                <button type="submit" class="btn btn-primary">➕ Save Permanent Full-Week Schedule</button>
             </form>
 
-            <!-- SIMULATION GPS TRACKING CONTROLLER -->
+            <!-- LIVE GPS TRANSMISSION CONTROLLER (WITH EXPLICIT ON/OFF BUTTONS) -->
             <div class="gps-panel">
                 <div class="gps-status">
                     <span>📡 Driver Live GPS Transmitter</span>
-                    <span id="gpsStatusText"><span class="status-dot"></span> Offline</span>
+                    <span id="gpsStatusText"><span class="status-dot"></span> GPS OFF</span>
                 </div>
 
                 <div class="form-group">
-                    <label>Select Your Registered Bus</label>
+                    <label>Select Active Bus To Broadcast</label>
                     <select id="gpsBusSelect">
-                        <option value="">-- Choose Bus to Broadcast Location --</option>
+                        <option value="">-- Choose Bus for Live Broadcast --</option>
                     </select>
                 </div>
 
-                <button class="btn btn-live" id="gpsToggleBtn" onclick="toggleGpsTracking()">📡 Start Transmitting My Live GPS</button>
+                <div class="gps-controls">
+                    <button class="btn btn-gps-on" onclick="startGpsTracking()">🟢 Turn ON GPS</button>
+                    <button class="btn btn-gps-off" onclick="stopGpsTracking()">🔴 Turn OFF GPS</button>
+                </div>
+
                 <div id="map" class="map-preview"></div>
             </div>
         </div>
 
-        <!-- LIST OF REGISTERED LOCAL BUSES -->
+        <!-- LIST OF REGISTERED PERMANENT SCHEDULES -->
         <div class="card">
             <div class="card-title">
-                📋 Registered Local & Village Schedules
+                🗓️ Permanent Route Schedules & Timetables
             </div>
             
             <p style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 12px;">
-                These schedules are saved locally in your browser session and made available for local commuter tracking.
+                Full-day and weekly schedules registered here remain stored persistently for local village commuter lookup.
             </p>
 
             <table class="bus-list-table">
                 <thead>
                     <tr>
-                        <th>Bus / Route</th>
+                        <th>Bus / Operator</th>
                         <th>Path</th>
-                        <th>Dep. Time</th>
-                        <th>Type</th>
+                        <th>Full Day Timing</th>
+                        <th>Days Active</th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="busTableBody">
-                    <tr><td colspan="5" style="text-align: center; color: #94a3b8;">No registered local buses yet.</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #94a3b8;">No permanent schedules registered yet.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -310,16 +385,22 @@
                 startLocation: "Siolim Church",
                 destinationLocation: "Mapusa Bus Stand",
                 intermediateStops: "Anjuna Cross, Guirim",
-                departureTime: "08:30",
+                days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                startTime: "06:30",
+                endTime: "20:30",
+                frequency: "Every 30 mins",
                 busType: "Local Village Bus"
             },
             {
-                busId: "CANDOLIM-PANAJI-04",
-                operatorName: "Coastal Express",
-                startLocation: "Candolim Circle",
+                busId: "PERNEM-PANAJI-09",
+                operatorName: "Northern Express",
+                startLocation: "Pernem Market",
                 destinationLocation: "Panaji KTC Bus Stand",
-                intermediateStops: "Nerul Bridge, Betim Ferry",
-                departureTime: "09:15",
+                intermediateStops: "Colvale Bridge, Mapusa",
+                days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                startTime: "07:00",
+                endTime: "19:00",
+                frequency: "Every 1 Hour",
                 busType: "Private Shuttle"
             }
         ];
@@ -355,15 +436,26 @@
             const startLocation = document.getElementById('startLocation').value.trim();
             const destinationLocation = document.getElementById('destinationLocation').value.trim();
             const intermediateStops = document.getElementById('intermediateStops').value.trim();
-            const departureTime = document.getElementById('departureTime').value;
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const frequency = document.getElementById('frequency').value;
             const busType = document.getElementById('busType').value;
+
+            // Get selected weekly operating days
+            const dayCheckboxes = document.querySelectorAll('input[name="operatingDays"]:checked');
+            const days = Array.from(dayCheckboxes).map(cb => cb.value);
+
+            if (days.length === 0) {
+                showAlert('Please select at least one operating day for the week.', 'info');
+                return;
+            }
 
             if (registeredBuses.some(b => b.busId.toLowerCase() === busId.toLowerCase())) {
                 showAlert('Bus with ID/Plate number already registered!', 'info');
                 return;
             }
 
-            const newBus = { busId, operatorName, startLocation, destinationLocation, intermediateStops, departureTime, busType };
+            const newBus = { busId, operatorName, startLocation, destinationLocation, intermediateStops, days, startTime, endTime, frequency, busType };
             registeredBuses.push(newBus);
             saveToStorage();
             
@@ -371,7 +463,7 @@
             populateGpsSelect();
             document.getElementById('registerForm').reset();
             
-            showAlert(`Bus ${busId} registered successfully!`, 'success');
+            showAlert(`Full-week schedule for ${busId} saved successfully!`, 'success');
         }
 
         function removeBus(busId) {
@@ -389,73 +481,92 @@
                 return;
             }
 
-            tbody.innerHTML = registeredBuses.map(b => `
-                <tr>
-                    <td>
-                        <strong>${b.busId}</strong><br>
-                        <span style="font-size:0.68rem; color:#94a3b8;">${b.operatorName}</span>
-                    </td>
-                    <td>${b.startLocation} &rarr; ${b.destinationLocation}</td>
-                    <td><strong>${b.departureTime}</strong></td>
-                    <td><span style="font-size:0.68rem; background:rgba(16,185,129,0.15); color:#34d399; padding:2px 6px; border-radius:4px;">${b.busType}</span></td>
-                    <td><button class="btn-danger" onclick="removeBus('${b.busId}')">Remove</button></td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = registeredBuses.map(b => {
+                const daysStr = (b.days && b.days.length === 7) ? "Daily (Mon-Sun)" : (b.days ? b.days.join(', ') : 'All Days');
+                return `
+                    <tr>
+                        <td>
+                            <strong>${b.busId}</strong><br>
+                            <span style="font-size:0.68rem; color:#94a3b8;">${b.operatorName}</span>
+                        </td>
+                        <td>
+                            ${b.startLocation} &rarr; ${b.destinationLocation}<br>
+                            <span style="font-size:0.68rem; color:#94a3b8;">Stops: ${b.intermediateStops || 'Direct'}</span>
+                        </td>
+                        <td>
+                            <strong>${b.startTime} - ${b.endTime}</strong><br>
+                            <span style="font-size:0.68rem; color:#34d399;">${b.frequency}</span>
+                        </td>
+                        <td><span class="days-tag">${daysStr}</span></td>
+                        <td><button class="btn-danger" onclick="removeBus('${b.busId}')">Delete</button></td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function populateGpsSelect() {
             const select = document.getElementById('gpsBusSelect');
-            select.innerHTML = `<option value="">-- Choose Bus to Broadcast Location --</option>` + 
+            select.innerHTML = `<option value="">-- Choose Bus for Live Broadcast --</option>` + 
                 registeredBuses.map(b => `<option value="${b.busId}">${b.busId} (${b.startLocation} &rarr; ${b.destinationLocation})</option>`).join('');
         }
 
-        function toggleGpsTracking() {
+        function startGpsTracking() {
             const selectedBus = document.getElementById('gpsBusSelect').value;
             const statusText = document.getElementById('gpsStatusText');
-            const toggleBtn = document.getElementById('gpsToggleBtn');
 
             if (!selectedBus) {
                 alert("Please select a registered bus first!");
                 return;
             }
 
-            if (!isTransmitting) {
-                if ("geolocation" in navigator) {
-                    gpsWatchId = navigator.geolocation.watchPosition(
-                        (position) => {
-                            const lat = position.coords.latitude;
-                            const lng = position.coords.longitude;
-                            
-                            updateDriverMarker(lat, lng, selectedBus);
-                            statusText.innerHTML = `<span class="status-dot active"></span> Broadcasting GPS Live (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-                        },
-                        (err) => {
-                            console.warn("GPS Access Error/Denied, fallback to simulated location:", err.message);
-                            // Fallback simulation near Panaji/Mapusa
-                            const lat = 15.4989 + (Math.random() - 0.5) * 0.02;
-                            const lng = 73.8278 + (Math.random() - 0.5) * 0.02;
-                            updateDriverMarker(lat, lng, selectedBus);
-                            statusText.innerHTML = `<span class="status-dot active"></span> Simulated GPS Active`;
-                        },
-                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-                    );
-
-                    isTransmitting = true;
-                    toggleBtn.innerText = "🛑 Stop Transmitting GPS";
-                    toggleBtn.style.background = "#ef4444";
-                    toggleBtn.style.color = "#ffffff";
-                } else {
-                    alert("Geolocation is not supported by your browser.");
-                }
-            } else {
-                if (gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
-                isTransmitting = false;
-                statusText.innerHTML = `<span class="status-dot"></span> Offline`;
-                toggleBtn.innerText = "📡 Start Transmitting My Live GPS";
-                toggleBtn.style.background = "#38bdf8";
-                toggleBtn.style.color = "#0b132b";
-                if (driverMarker) map.removeLayer(driverMarker);
+            if (isTransmitting) {
+                alert("GPS is already active and transmitting!");
+                return;
             }
+
+            if ("geolocation" in navigator) {
+                gpsWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        updateDriverMarker(lat, lng, selectedBus);
+                        statusText.innerHTML = `<span class="status-dot active"></span> Broadcasting GPS Live (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+                    },
+                    (err) => {
+                        console.warn("GPS Access Error/Denied, fallback to simulated location:", err.message);
+                        const lat = 15.4989 + (Math.random() - 0.5) * 0.02;
+                        const lng = 73.8278 + (Math.random() - 0.5) * 0.02;
+                        updateDriverMarker(lat, lng, selectedBus);
+                        statusText.innerHTML = `<span class="status-dot active"></span> Simulated GPS Active`;
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+
+                isTransmitting = true;
+                showAlert(`GPS Transmitting Turned ON for ${selectedBus}`, 'success');
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        function stopGpsTracking() {
+            const statusText = document.getElementById('gpsStatusText');
+
+            if (!isTransmitting) {
+                alert("GPS is already OFF.");
+                return;
+            }
+
+            if (gpsWatchId !== null) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+            }
+
+            isTransmitting = false;
+            statusText.innerHTML = `<span class="status-dot"></span> GPS OFF`;
+            if (driverMarker) map.removeLayer(driverMarker);
+            
+            showAlert("GPS Transmission Turned OFF.", 'info');
         }
 
         function updateDriverMarker(lat, lng, busId) {
