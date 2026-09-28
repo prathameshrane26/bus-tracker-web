@@ -36,6 +36,9 @@
         .lang-btn { background: #0b132b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 10px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.78rem; transition: all 0.2s; }
         .lang-btn:hover { background: #38bdf8; color: #0b132b; }
 
+        .local-link { background: rgba(16, 185, 129, 0.15); color: #34d399; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; border: 1px solid #10b981; transition: all 0.2s; }
+        .local-link:hover { background: #10b981; color: #0b132b; }
+
         .driver-link { background: #0b132b; color: #34d399; text-decoration: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; border: 1px solid #10b981; transition: all 0.2s; }
         .driver-link:hover { background: #10b981; color: #0b132b; }
 
@@ -59,7 +62,7 @@
         @media (max-width: 768px) {
             header h1 span.subtext { display: none; }
             .header-actions { gap: 6px; }
-            .lang-btn, .driver-link, .admin-link { padding: 5px 8px; font-size: 0.72rem; }
+            .lang-btn, .local-link, .driver-link, .admin-link { padding: 5px 8px; font-size: 0.72rem; }
             
             .app-layout { flex-direction: column-reverse; }
             .sidebar { 
@@ -76,6 +79,34 @@
         
         .map-container { flex: 1; height: 100%; width: 100%; position: relative; background: #0b132b; }
         #map { width: 100%; height: 100%; position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 10; }
+
+        /* Local Private Bus Banner */
+        .local-info-banner {
+            background: linear-gradient(135deg, #064e3b 0%, #0f766e 100%);
+            border: 1px solid #34d399;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .local-info-title { font-size: 0.75rem; text-transform: uppercase; color: #a7f3d0; font-weight: 800; letter-spacing: 0.5px; }
+        .local-info-desc { font-size: 0.75rem; color: #ecfdf5; line-height: 1.3; }
+        .local-info-btn {
+            display: inline-block;
+            margin-top: 4px;
+            text-align: center;
+            background: #34d399;
+            color: #064e3b;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .local-info-btn:hover { background: #a7f3d0; }
 
         .filter-card { background: #0b132b; border: 1px solid #3a506b; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
         .filter-card h2 { font-size: 0.88rem; color: #f59e0b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -152,6 +183,7 @@
         <h1>🚌 Goan Transit <span class="subtext">| kadamba tracker</span></h1>
         <div class="header-actions">
             <button class="lang-btn" onclick="toggleLanguage()" id="langBtn">🌐 कोंकणी (Konkani)</button>
+            <a href="local-transit.html" class="local-link" id="localLinkText">🚌 Local Private Buses</a>
             <a href="driver.html" class="driver-link" id="driverLinkText">👨‍✈️ Driver Login</a>
             <a href="admin.html" class="admin-link" id="adminLinkText">⚙️ KTC Control</a>
         </div>
@@ -159,6 +191,14 @@
 
     <div class="app-layout">
         <div class="sidebar">
+            
+            <!-- Static Local Private Bus Portal Link Banner -->
+            <div class="local-info-banner">
+                <div class="local-info-title" id="localBannerTitle">🏡 Village & Private Local Buses</div>
+                <div class="local-info-desc" id="localBannerDesc">Looking for non-KTC village buses? Access private bus timetables, route schedules, and password-free driver tracking.</div>
+                <a href="local-transit.html" class="local-info-btn" id="localBannerBtn">Open Local Bus Portal &rarr;</a>
+            </div>
+
             <div class="filter-card">
                 <h2 id="searchTitle">🔍 Search Route</h2>
                 
@@ -218,8 +258,12 @@
 
         const TRANSLATIONS = {
             EN: {
+                localText: "🚌 Local Private Buses",
                 driverText: "👨‍✈️ Driver Login",
                 adminText: "⚙️ KTC Control",
+                localBannerTitle: "🏡 Village & Private Local Buses",
+                localBannerDesc: "Looking for non-KTC village buses? Access private bus timetables, route schedules, and password-free driver tracking.",
+                localBannerBtn: "Open Local Bus Portal \u2192",
                 searchTitle: "🔍 Search Route (Sodh-Aso)",
                 lblSource: "Source Terminal",
                 lblDest: "Destination Terminal",
@@ -240,8 +284,12 @@
                 noBus: "No buses available on this path."
             },
             KN: {
+                localText: "🚌 लोकल प्रायव्हेट बसेस",
                 driverText: "👨‍✈️ ड्रायव्हर लॉगिन",
                 adminText: "⚙️ प्रशासक नियंत्रण",
+                localBannerTitle: "🏡 गांवांतल्यो व खाजगी बसेस",
+                localBannerDesc: "केटीसी भायर आशिल्ल्यो गावगिऱ्यो बसेस सोधतात? खाजगी बस वेळापत्रक आनी विना-पासवर्ड ट्रॅकिंग पळेयात.",
+                localBannerBtn: "लोकल बस पोर्टल उघडा \u2192",
                 searchTitle: "🔍 रस्तो सोधा (मार्ग शोध)",
                 lblSource: "सुरवातीचे बस स्थानक (Source)",
                 lblDest: "निमाणे बस स्थानक (Destination)",
@@ -305,8 +353,12 @@
             document.getElementById('langBtn').innerText = currentLang === 'EN' ? '🌐 कोंकणी (Konkani)' : '🌐 English';
             
             const t = TRANSLATIONS[currentLang];
+            document.getElementById('localLinkText').innerText = t.localText;
             document.getElementById('driverLinkText').innerText = t.driverText;
             document.getElementById('adminLinkText').innerText = t.adminText;
+            document.getElementById('localBannerTitle').innerText = t.localBannerTitle;
+            document.getElementById('localBannerDesc').innerText = t.localBannerDesc;
+            document.getElementById('localBannerBtn').innerText = t.localBannerBtn;
             document.getElementById('searchTitle').innerText = t.searchTitle;
             document.getElementById('lblSource').innerText = t.lblSource;
             document.getElementById('lblDest').innerText = t.lblDest;
