@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goa Local Private Bus Tracker</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        html, body { height: 100%; width: 100%; background: #0f172a; color: #f8fafc; overflow-x: hidden; }
+
+        header {
+            background: #1e293b;
+            padding: 12px 20px;
+            border-bottom: 3px solid #10b981;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        header h1 { font-size: 1.1rem; color: #34d399; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        header h1 span { font-size: 0.7rem; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 4px; }
+
+        .nav-tabs { display: flex; gap: 6px; }
+        .tab-btn {
+            background: #0f172a;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { background: #10b981; color: #0f172a; border-color: #10b981; }
+
+        .container { padding: 16px; max-width: 1200px; margin: 0 auto; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* Card Styles */
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+        .card h2 { font-size: 0.95rem; color: #34d399; margin-bottom: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Map & Tracking Grid */
+        .tracking-grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: calc(100vh - 120px); }
+        @media (max-width: 768px) {
+            .tracking-grid { grid-template-columns: 1fr; height: auto; }
+            #map { height: 350px !important; }
+        }
+        #map { width: 100%; height: 100%; border-radius: 12px; border: 1px solid #334155; min-height: 350px; }
+
+        /* Form Controls */
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #f8fafc;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        input:focus, select:focus { border-color: #10b981; }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            background: #10b981;
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #34d399; }
+        .btn-danger { background: #ef4444; color: #ffffff; }
+        .btn-danger:hover { background: #f87171; }
+
+        /* Lists and Cards */
+        .bus-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .bus-item:hover { border-color: #10b981; transform: translateY(-1px); }
+        .bus-item-header { display: flex; justify-content: space-between; font-weight: 800; margin-bottom: 4px; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; }
+        .badge-live { background: rgba(52, 211, 153, 0.2); color: #34d399; border: 1px solid #10b981; }
+        .badge-static { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #475569; }
+
+        /* Timetable Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.82rem; }
+        th { background: #0f172a; color: #34d399; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
+        tr:hover { background: rgba(51, 65, 85, 0.3); }
+
+        .status-box {
+            padding: 10px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px dashed #334155;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Marker Styles */
+        .bus-marker-label {
+            background: #1e293b;
+            color: #34d399;
+            border: 1px solid #10b981;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🚌 Goan Village Transit <span>Local Private Buses</span></h1>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('tracker')">🗺️ Live Map</button>
+            <button class="tab-btn" onclick="switchTab('timetable')">📅 Schedules</button>
+            <button class="tab-btn" onclick="switchTab('driver')">👨‍✈️ Driver Portal</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- 1. LIVE TRACKER TAB -->
+        <div id="tab-tracker" class="view-section active">
+            <div class="tracking-grid">
+                <div class="sidebar-panel">
+                    <div class="card">
+                        <h2>🔍 Find Route</h2>
+                        <div class="form-group">
+                            <label>Starting Terminal</label>
+                            <select id="filterSource" onchange="applyFilters()">
+                                <option value="ALL">-- All Local Stops --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Destination Stop</label>
+                            <select id="filterDest" onchange="applyFilters()">
+                                <option value="ALL">-- All Destinations --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card" style="max-height: calc(100vh - 310px); overflow-y: auto;">
+                        <h2>🚌 Active Local Buses</h2>
+                        <div id="localBusList"></div>
+                    </div>
+                </div>
+
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <!-- 2. TIMETABLE TAB -->
+        <div id="tab-timetable" class="view-section">
+            <div class="card">
+                <h2>📅 Local Village Bus Timetable & Route Schedules</h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Bus Name / Number</th>
+                                <th>Operator</th>
+                                <th>Source Terminal</th>
+                                <th>Destination</th>
+                                <th>Via Stops</th>
+                                <th>Departure Time</th>
+                                <th>Service Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timetableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. DRIVER PORTAL TAB (No Login / No Password) -->
+        <div id="tab-driver" class="view-section">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+                
+                <!-- Quick Driver Console -->
+                <div class="card">
+                    <h2>⚡ Driver Live GPS Console</h2>
+                    <p style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 12px;">No password required. Select your registered bus and broadcast live location directly to local passengers.</p>
+
+                    <div class="form-group">
+                        <label>Select Your Bus</label>
+                        <select id="driverBusSelect">
+                            <option value="">-- Choose Assigned Bus --</option>
+                        </select>
+                    </div>
+
+                    <button id="btnStartGps" class="btn" onclick="toggleGpsTracking()">📡 Start Live GPS Broadcast</button>
+                    
+                    <div id="gpsStatusBox" class="status-box">
+                        GPS Offline. Select a bus and click start.
+                    </div>
+                </div>
+
+                <!-- Instant Bus Registration -->
+                <div class="card">
+                    <h2>📝 Register New Private Bus</h2>
+                    <p style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 12px;">Instantly add local bus routes without KTC admin approval.</p>
+
+                    <form id="regForm" onsubmit="handleRegistration(event)">
+                        <div class="form-group">
+                            <label>Bus Name / Reg Number</label>
+                            <input type="text" id="regBusId" placeholder="e.g., GA-07-F-1234 (St. Anthony Bus)" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Operator / Owner Name</label>
+                            <input type="text" id="regOperator" placeholder="e.g., Fernandes Travels" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Source Terminal</label>
+                            <input type="text" id="regSource" placeholder="e.g., Calangute Circle" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Destination Terminal</label>
+                            <input type="text" id="regDest" placeholder="e.g., Panaji Market" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Via Intermediate Stops (Comma separated)</label>
+                            <input type="text" id="regStops" placeholder="e.g., Candolim, Nerul, Betim Bridge" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Departure Time</label>
+                            <input type="time" id="regTime" required>
+                        </div>
+                        <button type="submit" class="btn">➕ Register Bus Instantly</button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Pre-loaded Local Goan Private Bus Data
+        const DEFAULT_LOCAL_BUSES = [
+            {
+                busId: "GA-03-X-4412 (Mother Mary Express)",
+                operator: "Souza Travels",
+                source: "Siolim Church",
+                dest: "Mapusa Bus Stand",
+                stops: ["Anjuna Cross", "Oxel", "Parra"],
+                depTime: "07:30",
+                type: "Local Village Service",
+                lat: 15.6138,
+                lng: 73.7663,
+                isLive: false
+            },
+            {
+                busId: "GA-08-V-8819 (St. Francis Xavier)",
+                operator: "Pereira Motors",
+                source: "Colva Beach Terminal",
+                dest: "Margao KTC Stand",
+                stops: ["Seraulim", "Benaulim Junction"],
+                depTime: "08:15",
+                type: "Coastal Express",
+                lat: 15.2770,
+                lng: 73.9168,
+                isLive: false
+            },
+            {
+                busId: "GA-01-T-9001 (Ponda Local Shuttle)",
+                operator: "Naik Bus Transport",
+                source: "Ponda Bus Stand",
+                dest: "Marcel Market",
+                stops: ["Kundaim", "Tiwim Cross"],
+                depTime: "08:45",
+                type: "Inter-Village Bus",
+                lat: 15.4026,
+                lng: 74.0123,
+                isLive: false
+            }
+        ];
+
+        let localBuses = [];
+        let map = null;
+        let mapMarkers = {};
+        let watchId = null;
+        let isBroadcasting = false;
+
+        // Initialize Application
+        window.onload = function() {
+            loadStoredBuses();
+            initMap();
+            populateFilterDropdowns();
+            renderTimetable();
+            renderBusList();
+            populateDriverSelect();
+        };
+
+        function loadStoredBuses() {
+            const stored = localStorage.getItem('goa_local_buses');
+            if (stored) {
+                localBuses = JSON.parse(stored);
+            } else {
+                localBuses = DEFAULT_LOCAL_BUSES;
+                saveBuses();
+            }
+        }
+
+        function saveBuses() {
+            localStorage.setItem('goa_local_buses', JSON.stringify(localBuses));
+        }
+
+        function initMap() {
+            map = L.map('map', { center: [15.3982, 73.8113], zoom: 11 });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+
+            updateMapMarkers();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            if (tabId === 'tracker' && map) {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
+        }
+
+        function populateFilterDropdowns() {
+            const sources = [...new Set(localBuses.map(b => b.source))];
+            const dests = [...new Set(localBuses.map(b => b.dest))];
+
+            const srcSelect = document.getElementById('filterSource');
+            const dstSelect = document.getElementById('filterDest');
+
+            srcSelect.innerHTML = '<option value="ALL">-- All Local Stops --</option>' + 
+                sources.map(s => `<option value="${s}">${s}</option>`).join('');
+
+            dstSelect.innerHTML = '<option value="ALL">-- All Destinations --</option>' + 
+                dests.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const src = document.getElementById('filterSource').value;
+            const dst = document.getElementById('filterDest').value;
+
+            const filtered = localBuses.filter(b => {
+                const matchSrc = (src === 'ALL' || b.source === src);
+                const matchDst = (dst === 'ALL' || b.dest === dst);
+                return matchSrc && matchDst;
+            });
+
+            renderBusList(filtered);
+            updateMapMarkers(filtered);
+        }
+
+        function renderBusList(list = localBuses) {
+            const container = document.getElementById('localBusList');
+            if (list.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">No private buses match your search.</div>`;
+                return;
+            }
+
+            container.innerHTML = list.map(b => `
+                <div class="bus-item" onclick="focusOnBus('${b.busId}')">
+                    <div class="bus-item-header">
+                        <span>🚌 ${b.busId.split(' ')[0]}</span>
+                        <span class="badge ${b.isLive ? 'badge-live' : 'badge-static'}">${b.isLive ? '● LIVE GPS' : 'SCHEDULED'}</span>
+                    </div>
+                    <div style="font-size:0.8rem; font-weight:700; color:#f8fafc;">${b.source} &rarr; ${b.dest}</div>
+                    <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px;">Operator: ${b.operator}</div>
+                    <div style="font-size:0.72rem; color:#34d399; margin-top:4px;">🕒 Departs: ${b.depTime}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderTimetable() {
+            const tbody = document.getElementById('timetableBody');
+            tbody.innerHTML = localBuses.map(b => `
+                <tr>
+                    <td><strong>${b.busId}</strong></td>
+                    <td>${b.operator}</td>
+                    <td>${b.source}</td>
+                    <td>${b.dest}</td>
+                    <td>${Array.isArray(b.stops) ? b.stops.join(', ') : b.stops}</td>
+                    <td><strong style="color:#34d399;">${b.depTime}</strong></td>
+                    <td><span class="badge badge-static">${b.type}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function updateMapMarkers(list = localBuses) {
+            Object.keys(mapMarkers).forEach(id => map.removeLayer(mapMarkers[id]));
+            mapMarkers = {};
+
+            list.forEach(b => {
+                if (b.lat && b.lng) {
+                    const icon = L.divIcon({
+                        className: 'custom-bus-marker',
+                        html: `<div class="bus-marker-label">${b.isLive ? '🟢' : '🏣'} ${b.busId.split(' ')[0]}</div>`,
+                        iconSize: [100, 24],
+                        iconAnchor: [50, 12]
+                    });
+
+                    const marker = L.marker([b.lat, b.lng], { icon }).addTo(map);
+                    marker.bindPopup(`
+                        <div style="color:#0f172a; font-weight:700;">
+                            <h4>🚌 ${b.busId}</h4>
+                            <p><strong>Route:</strong> ${b.source} &rarr; ${b.dest}</p>
+                            <p><strong>Via:</strong> ${Array.isArray(b.stops) ? b.stops.join(', ') : b.stops}</p>
+                            <p><strong>Status:</strong> ${b.isLive ? 'Live Tracking Active' : 'Stationed'}</p>
+                        </div>
+                    `);
+                    mapMarkers[b.busId] = marker;
+                }
+            });
+        }
+
+        function focusOnBus(busId) {
+            if (mapMarkers[busId]) {
+                map.flyTo(mapMarkers[busId].getLatLng(), 14, { duration: 1.0 });
+                mapMarkers[busId].openPopup();
+            }
+        }
+
+        /* --- DRIVER PORTAL & REGISTRATION (NO PASSWORD) --- */
+
+        function populateDriverSelect() {
+            const select = document.getElementById('driverBusSelect');
+            select.innerHTML = '<option value="">-- Choose Assigned Bus --</option>' + 
+                localBuses.map(b => `<option value="${b.busId}">${b.busId} (${b.source} - ${b.dest})</option>`).join('');
+        }
+
+        function handleRegistration(e) {
+            e.preventDefault();
+            const busId = document.getElementById('regBusId').value.trim();
+            const operator = document.getElementById('regOperator').value.trim();
+            const source = document.getElementById('regSource').value.trim();
+            const dest = document.getElementById('regDest').value.trim();
+            const stopsStr = document.getElementById('regStops').value.trim();
+            const depTime = document.getElementById('regTime').value;
+
+            const newBus = {
+                busId: busId,
+                operator: operator,
+                source: source,
+                dest: dest,
+                stops: stopsStr.split(',').map(s => s.trim()),
+                depTime: depTime,
+                type: "Local Private Service",
+                lat: 15.3982,
+                lng: 73.8113,
+                isLive: false
+            };
+
+            localBuses.push(newBus);
+            saveBuses();
+
+            // Refresh UI
+            populateFilterDropdowns();
+            renderTimetable();
+            renderBusList();
+            populateDriverSelect();
+            updateMapMarkers();
+
+            document.getElementById('regForm').reset();
+            alert(`✅ Local Bus "${busId}" registered successfully! Drivers can select it now.`);
+        }
+
+        function toggleGpsTracking() {
+            const selectedBusId = document.getElementById('driverBusSelect').value;
+            const statusBox = document.getElementById('gpsStatusBox');
+            const btn = document.getElementById('btnStartGps');
+
+            if (!selectedBusId) {
+                alert("Please select your bus before starting GPS broadcast.");
+                return;
+            }
+
+            if (isBroadcasting) {
+                // Stop GPS
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                isBroadcasting = false;
+
+                const bus = localBuses.find(b => b.busId === selectedBusId);
+                if (bus) bus.isLive = false;
+                saveBuses();
+
+                btn.innerText = "📡 Start Live GPS Broadcast";
+                btn.className = "btn";
+                statusBox.innerHTML = "GPS Broadcast Stopped.";
+                
+                renderBusList();
+                updateMapMarkers();
+            } else {
+                // Start GPS
+                if (!navigator.geolocation) {
+                    alert("Geolocation is not supported by your browser.");
+                    return;
+                }
+
+                statusBox.innerHTML = "⏳ Requesting GPS location access...";
+
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        
+                        const bus = localBuses.find(b => b.busId === selectedBusId);
+                        if (bus) {
+                            bus.lat = latitude;
+                            bus.lng = longitude;
+                            bus.isLive = true;
+                            saveBuses();
+                        }
+
+                        isBroadcasting = true;
+                        btn.innerText = "🛑 Stop Live GPS Broadcast";
+                        btn.className = "btn btn-danger";
+
+                        statusBox.innerHTML = `🟢 Broadcasting live coordinates: <br><strong>Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}</strong>`;
+
+                        renderBusList();
+                        updateMapMarkers();
+                    },
+                    (error) => {
+                        alert("Unable to acquire location: " + error.message);
+                        statusBox.innerHTML = "❌ GPS Access Denied or Unavailable.";
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
+        }
+    </script>
+</body>
+</html>
