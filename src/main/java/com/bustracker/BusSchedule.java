@@ -11,6 +11,7 @@ public class BusSchedule {
     @Id
     private String scheduleId;
     private String busId;
+    private String busNumber;
     private String driverName;
     private String driverEmail; // Admin inputs this manually
     private String routeName;
@@ -39,6 +40,9 @@ public class BusSchedule {
 
     public String getBusId() { return busId; }
     public void setBusId(String busId) { this.busId = busId; }
+
+    public String getBusNumber() { return busNumber; }
+    public void setBusNumber(String busNumber) { this.busNumber = busNumber; }
 
     public String getDriverName() { return driverName; }
     public void setDriverName(String driverName) { this.driverName = driverName; }

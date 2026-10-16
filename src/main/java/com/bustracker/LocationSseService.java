@@ -43,6 +43,22 @@ public class LocationSseService {
         broadcast("location-update", update);
     }
 
+    public void broadcastBusStopped(String busId) {
+        broadcast("bus-stopped", List.of(new BusStoppedEvent(busId)));
+    }
+
+    private static class BusStoppedEvent {
+        private final String busId;
+        private final String status = "STOPPED";
+
+        public BusStoppedEvent(String busId) {
+            this.busId = busId;
+        }
+
+        public String getBusId() { return busId; }
+        public String getStatus() { return status; }
+    }
+
     @Scheduled(fixedRate = 15000)
     public void sendHeartbeat() {
         broadcast("heartbeat", "keep-alive");

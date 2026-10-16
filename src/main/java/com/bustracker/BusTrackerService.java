@@ -30,8 +30,8 @@ public class BusTrackerService {
         return EARTH_RADIUS_KM * c;
     }
 
-    public long calculateEtaMinutes(double distanceKm, double speedKmh) {
-        double speed = (speedKmh > 5.0) ? speedKmh : 25.0;
-        return Math.round((distanceKm / speed) * 60);
+    public long calculateEtaMinutes(double distanceKm) {
+        double averageSpeed = 25.0; // Default average speed in km/h
+        return Math.round((distanceKm / averageSpeed) * 60);
     }
 }

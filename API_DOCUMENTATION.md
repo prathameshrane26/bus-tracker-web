@@ -196,20 +196,20 @@ Returns the latest in-memory location for each active bus.
 Response: `200 OK`
 
 ```json
-[
-  {
-    "busId": "GA-03-X-1001",
-    "latitude": 15.4901,
-    "longitude": 73.8278,
-    "speed": 32.5,
-    "destination": "Margao"
-  }
-]
+{
+  "busId": "GA-03-X-1001",
+  "busNumber": "1001",
+  "latitude": 15.4901,
+  "longitude": 73.8278,
+  "startPoint": "Panaji",
+  "destination": "Margao",
+  "routeTaken": "Panaji - Margao"
+}
 ```
 
 ### 3.3 Initial map locations: `GET /api/buses/all-scheduled-locations`
 
-Returns at most one location record per scheduled bus. If the bus is live, the latest live location is returned. Otherwise its schedule start coordinates are returned with `speed: 0.0` and the schedule destination.
+Returns at most one location record per scheduled bus. If the bus is live, the latest live location is returned. Otherwise its schedule start coordinates are returned and the schedule destination.
 
 Response: `200 OK`
 
@@ -217,10 +217,12 @@ Response: `200 OK`
 [
   {
     "busId": "GA-03-X-1001",
+    "busNumber": "1001",
     "latitude": 15.4901,
     "longitude": 73.8278,
-    "speed": 0.0,
-    "destination": "Margao"
+    "startPoint": "Panaji",
+    "destination": "Margao",
+    "routeTaken": "Panaji - Margao"
   }
 ]
 ```
@@ -241,14 +243,21 @@ Initial event:
 
 ```text
 event: location-snapshot
-data: [{"busId":"GA-03-X-1001","latitude":15.4901,"longitude":73.8278,"speed":32.5,"destination":"Margao"}]
+data: [{"busId":"GA-03-X-1001","busNumber":"1001","latitude":15.4901,"longitude":73.8278,"startPoint":"Panaji","destination":"Margao","routeTaken":"Panaji - Margao"}]
 ```
 
 Each live update:
 
 ```text
 event: location-update
-data: {"busId":"GA-03-X-1001","latitude":15.491,"longitude":73.829,"speed":31.2,"destination":"Margao"}
+data: {"busId":"GA-03-X-1001","busNumber":"1001","latitude":15.491,"longitude":73.829,"startPoint":"Panaji","destination":"Margao","routeTaken":"Panaji - Margao"}
+```
+
+Bus removal/stop event:
+
+```text
+event: bus-stopped
+data: [{"busId":"GA-03-X-1001","status":"STOPPED"}]
 ```
 
 Heartbeat, sent every approximately 15 seconds:
@@ -262,9 +271,10 @@ Client behavior:
 
 1. Apply `location-snapshot` as the initial state.
 2. Merge each `location-update` by `busId`.
-3. Ignore `heartbeat` as a map location.
-4. Reconnect after failure using approximately 5 seconds (the server advertises `retry: 5000`).
-5. Close the stream when the passenger view is destroyed.
+3. Handle `bus-stopped` by removing the bus from the live tracking layer or updating its status to 'STOPPED'. Note: The backend may also send a final `location-update` with the bus's scheduled start coordinates to reset its position on the map.
+4. Ignore `heartbeat` as a map location.
+5. Reconnect after failure using approximately 5 seconds (the server advertises `retry: 5000`).
+6. Close the stream when the passenger view is destroyed.
 
 ## 4. Driver location upload over STOMP
 
@@ -290,10 +300,12 @@ JSON body:
 ```json
 {
   "busId": "GA-03-X-1001",
+  "busNumber": "1001",
   "latitude": 15.4901,
   "longitude": 73.8278,
-  "speed": 32.5,
-  "destination": "Margao"
+  "startPoint": "Panaji",
+  "destination": "Margao",
+  "routeTaken": "Panaji - Margao"
 }
 ```
 
@@ -302,20 +314,46 @@ Fields:
 | Field | Type | Required | Description |
 |---|---|---:|---|
 | `busId` | string | yes | Driver's assigned bus ID; blank IDs are ignored |
+| `busNumber` | string | no | Bus number |
 | `latitude` | number | yes | Current latitude |
 | `longitude` | number | yes | Current longitude |
-| `speed` | number | yes | Speed, conventionally km/h |
+| `startPoint` | string | no | Starting location |
 | `destination` | string | no | Current trip destination; may be null |
+| `routeTaken` | string | no | Route taken |
 
 There is no REST response to a STOMP send. A null message or blank `busId` is ignored. A valid message replaces the bus's current in-memory location and triggers the SSE/topic notifications below.
 
-### 4.3 Subscribe to backend topics (optional)
+### 4.3 Stop location sharing: `POST /api/buses/stop-sharing`
+
+Drivers use this endpoint to explicitly stop sharing their location (e.g., end of shift or reached destination).
+
+Request body:
+
+```json
+{
+  "busId": "GA-03-X-1001"
+}
+```
+
+Success: `200 OK`
+
+```json
+{
+  "status": "SUCCESS",
+  "message": "Location sharing stopped for bus: GA-03-X-1001"
+}
+```
+
+Errors: `400` if `busId` is missing; `404` if the bus is not currently active.
+
+### 4.4 Subscribe to backend topics (optional)
 
 These topics are available for compatibility with the existing web interface:
 
 | Topic | Payload |
 |---|---|
 | `/topic/bus-locations` | One `BusLocationUpdate` object (all updates) |
+| `/topic/bus-stopped` | `{ "busId": "...", "status": "STOPPED" }` |
 | `/topic/bus/{busId}` | One `BusLocationUpdate` object |
 | `/topic/active-buses` | JSON array of active bus ID strings |
 | `/topic/schedule-added` | One `BusSchedule` object |
@@ -360,6 +398,7 @@ Fields and types:
 |---|---|---:|---|
 | `scheduleId` | string | no | Generated as `SCH-XXXXXXXX` when omitted or blank |
 | `busId` | string | yes | Must not be blank |
+| `busNumber` | string | no | Bus number |
 | `driverName` | string | no | Defaults to `Assigned Driver` for credentials |
 | `driverEmail` | string | yes | Must not be blank; used for generated credentials email |
 | `routeName` | string | no | Free text |
@@ -383,6 +422,7 @@ Success: `200 OK`
   "schedule": {
     "scheduleId": "SCH-12345678",
     "busId": "GA-03-X-1001",
+    "busNumber": "1001",
     "driverName": "Driver Name",
     "driverEmail": "driver@example.com",
     "routeName": "Panaji - Margao",
@@ -435,10 +475,12 @@ Not found: `404 Not Found`
 ```typescript
 interface BusLocationUpdate {
   busId: string;
+  busNumber: string | null;
   latitude: number;
   longitude: number;
-  speed: number;
+  startPoint: string | null;
   destination: string | null;
+  routeTaken: string | null;
 }
 ```
 
@@ -448,6 +490,7 @@ interface BusLocationUpdate {
 interface BusSchedule {
   scheduleId: string;
   busId: string | null;
+  busNumber: string | null;
   driverName: string | null;
   driverEmail: string | null;
   routeName: string | null;
@@ -459,6 +502,23 @@ interface BusSchedule {
   arrivalTime: string | null;
   operatingDays: string | null;
   busType: string | null;
+}
+```
+
+### `PassengerBusStatus`
+
+```typescript
+interface PassengerBusStatus {
+  busId: string;
+  busNumber: string | null;
+  latitude: number;
+  longitude: number;
+  startPoint: string | null;
+  destination: string | null;
+  routeTaken: string | null;
+  nextStopName: string | null;
+  distanceToNextStopKm: number;
+  etaMinutes: number;
 }
 ```
 
@@ -478,8 +538,9 @@ interface BusSchedule {
 2. Temporarily log in with `POST /api/auth/login` using `busId` and `phoneNumber` without OTP verification. Password login remains supported.
 3. Connect to `/ws` using STOMP/SockJS.
 4. Publish the logged-in driver's location to `/app/update-location` at the desired interval.
-5. Disconnect the WebSocket when the trip ends or the driver signs out.
-6. Call `/api/auth/logout` when the user signs out.
+5. Call `POST /api/buses/stop-sharing` when the trip ends (e.g., reached destination) or when the driver manually stops sharing.
+6. Disconnect the WebSocket when the trip ends or the driver signs out.
+7. Call `/api/auth/logout` when the user signs out.
 
 ### Admin
 

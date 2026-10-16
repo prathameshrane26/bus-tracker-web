@@ -60,6 +60,53 @@ public class BusController {
         messagingTemplate.convertAndSend("/topic/active-buses", getActiveBusIds());
     }
 
+    @PostMapping("/buses/stop-sharing")
+    public ResponseEntity<Map<String, String>> stopLocationSharing(@RequestBody Map<String, String> request) {
+        String busId = request.get("busId");
+        if (busId == null || busId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Bus ID is required."));
+        }
+
+        if (activeBusLocations.containsKey(busId)) {
+            activeBusLocations.remove(busId);
+            
+            // Notify clients that the bus is no longer active
+            Map<String, String> payload = Map.of("busId", busId, "status", "STOPPED");
+            messagingTemplate.convertAndSend("/topic/bus-stopped", payload);
+            messagingTemplate.convertAndSend("/topic/active-buses", getActiveBusIds());
+            
+            // Broadcast removal via SSE
+            locationSseService.broadcastBusStopped(busId);
+            
+            // If the bus is scheduled, broadcast its static location to reset the map icon
+            Optional<BusSchedule> scheduleOpt = busScheduleRepository.findAll().stream()
+                .filter(s -> busId.equals(s.getBusId()))
+                .findFirst();
+            
+            if (scheduleOpt.isPresent()) {
+                BusSchedule schedule = scheduleOpt.get();
+                BusLocationUpdate staticLoc = new BusLocationUpdate(
+                    busId,
+                    schedule.getBusNumber(),
+                    schedule.getStartLatitude(),
+                    schedule.getStartLongitude(),
+                    schedule.getStartLocation(),
+                    schedule.getDestinationLocation(),
+                    schedule.getRouteName()
+                );
+                // We broadcast this as a location-update so the client sees the bus at its start position (scheduled)
+                locationSseService.broadcastLocation(staticLoc);
+                messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
+                messagingTemplate.convertAndSend("/topic/bus/" + busId, staticLoc);
+            }
+            
+            return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Location sharing stopped for bus: " + busId));
+        }
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("status", "ERROR", "message", "Bus ID not currently sharing location."));
+    }
+
     // ------------------------------------------------------------------------
     // PASSENGER / PUBLIC ENDPOINTS
     // ------------------------------------------------------------------------
@@ -99,10 +146,12 @@ public class BusController {
                 } else {
                     BusLocationUpdate staticLoc = new BusLocationUpdate(
                         busId,
+                        schedule.getBusNumber(),
                         schedule.getStartLatitude(),
                         schedule.getStartLongitude(),
-                        0.0,
-                        schedule.getDestinationLocation()
+                        schedule.getStartLocation(),
+                        schedule.getDestinationLocation(),
+                        schedule.getRouteName()
                     );
                     resultLocations.add(staticLoc);
                 }
@@ -158,10 +207,12 @@ public class BusController {
             // 5. Notify frontend clients via WebSockets
             BusLocationUpdate staticLoc = new BusLocationUpdate(
                 schedule.getBusId(),
+                schedule.getBusNumber(),
                 schedule.getStartLatitude(),
                 schedule.getStartLongitude(),
-                0.0,
-                schedule.getDestinationLocation()
+                schedule.getStartLocation(),
+                schedule.getDestinationLocation(),
+                schedule.getRouteName()
             );
 
             messagingTemplate.convertAndSend("/topic/schedule-added", savedSchedule);
@@ -197,6 +248,7 @@ public class BusController {
 
             BusSchedule existing = existingOpt.get();
             existing.setBusId(updatedSchedule.getBusId());
+            existing.setBusNumber(updatedSchedule.getBusNumber());
             existing.setDriverName(updatedSchedule.getDriverName());
             existing.setDriverEmail(updatedSchedule.getDriverEmail());
             existing.setRouteName(updatedSchedule.getRouteName());
@@ -224,10 +276,12 @@ public class BusController {
             
             BusLocationUpdate staticLoc = new BusLocationUpdate(
                 saved.getBusId(),
+                saved.getBusNumber(),
                 saved.getStartLatitude(),
                 saved.getStartLongitude(),
-                0.0,
-                saved.getDestinationLocation()
+                saved.getStartLocation(),
+                saved.getDestinationLocation(),
+                saved.getRouteName()
             );
             messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
 
