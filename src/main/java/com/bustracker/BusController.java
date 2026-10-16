@@ -2,12 +2,14 @@ package com.bustracker;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,42 +28,16 @@ public class BusController {
     @Autowired
     private BusScheduleRepository busScheduleRepository;
 
+    @Autowired
+    private BusTrackerService busTrackerService;
+
+    @Autowired
+    private LocationSseService locationSseService;
+
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
     private final Map<String, BusLocationUpdate> activeBusLocations = new ConcurrentHashMap<>();
-
-    // ------------------------------------------------------------------------
-    // DRIVER AUTHENTICATION
-    // ------------------------------------------------------------------------
-
-    @PostMapping("/auth/login")
-    public ResponseEntity<Map<String, String>> loginDriver(@RequestBody Map<String, String> credentials) {
-        try {
-            if (credentials == null || !credentials.containsKey("busId") || !credentials.containsKey("password")) {
-                return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "busId and password are required."));
-            }
-
-            String busId = credentials.get("busId");
-            String password = credentials.get("password");
-
-            Optional<BusDriver> driverOpt = busDriverRepository.findById(busId);
-
-            if (driverOpt.isPresent() && password.equals(driverOpt.get().getPassword())) {
-                Map<String, String> response = new HashMap<>();
-                response.put("status", "SUCCESS");
-                response.put("busId", busId);
-                response.put("driverName", driverOpt.get().getDriverName() != null ? driverOpt.get().getDriverName() : "Driver");
-                return ResponseEntity.ok(response);
-            }
-
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("status", "ERROR", "message", "Invalid Bus ID or Password"));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("status", "ERROR", "message", "Auth failure: " + e.getMessage()));
-        }
-    }
 
     // ------------------------------------------------------------------------
     // REAL-TIME WEBSOCKET GPS STREAMING
@@ -74,8 +50,13 @@ public class BusController {
         }
 
         activeBusLocations.put(update.getBusId(), update);
+        if (busTrackerService != null) {
+            busTrackerService.registerActiveBus(update.getBusId());
+        }
 
+        locationSseService.broadcastLocation(update);
         messagingTemplate.convertAndSend("/topic/bus/" + update.getBusId(), update);
+        messagingTemplate.convertAndSend("/topic/bus-locations", update);
         messagingTemplate.convertAndSend("/topic/active-buses", getActiveBusIds());
     }
 
@@ -91,6 +72,11 @@ public class BusController {
     @GetMapping("/buses/locations")
     public Collection<BusLocationUpdate> getAllActiveLocations() {
         return activeBusLocations.values();
+    }
+
+    @GetMapping(value = "/buses/locations/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamActiveLocations() {
+        return locationSseService.subscribe(List.copyOf(activeBusLocations.values()));
     }
 
     @GetMapping("/buses/all-scheduled-locations")
@@ -180,6 +166,7 @@ public class BusController {
 
             messagingTemplate.convertAndSend("/topic/schedule-added", savedSchedule);
             messagingTemplate.convertAndSend("/topic/bus/" + schedule.getBusId(), staticLoc);
+            messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
 
             Map<String, Object> response = new HashMap<>();
             response.put("status", "SUCCESS");
@@ -234,6 +221,15 @@ public class BusController {
             sendCredentialsEmail(saved.getDriverEmail(), driverName, saved.getBusId(), newPassword);
 
             messagingTemplate.convertAndSend("/topic/schedule-added", saved);
+            
+            BusLocationUpdate staticLoc = new BusLocationUpdate(
+                saved.getBusId(),
+                saved.getStartLatitude(),
+                saved.getStartLongitude(),
+                0.0,
+                saved.getDestinationLocation()
+            );
+            messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
 
             Map<String, Object> response = new HashMap<>();
             response.put("status", "SUCCESS");
@@ -263,6 +259,7 @@ public class BusController {
 
                 Map<String, String> payload = Map.of("scheduleId", scheduleId, "busId", busId != null ? busId : "");
                 messagingTemplate.convertAndSend("/topic/schedule-deleted", payload);
+                messagingTemplate.convertAndSend("/topic/bus-deleted", payload);
 
                 return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Schedule deleted successfully!"));
             }
@@ -289,17 +286,16 @@ public class BusController {
         try {
             SimpleMailMessage mail = new SimpleMailMessage();
             mail.setTo(recipientEmail);
-            mail.setSubject("Goa Transit KTC Driver Portal Credentials - Bus ID: " + busId);
+            mail.setSubject("Goa Transit KTC Driver App Credentials - Bus ID: " + busId);
             mail.setText(
                 "Mogall " + driverName + ",\n\n" +
-                "You have been assigned a bus schedule by the administration. Below are your login credentials for the Driver Portal:\n\n" +
+                "You have been assigned a bus schedule by the administration. Below are your login credentials for the Driver App:\n\n" +
                 "--------------------------------------------------\n" +
                 "BUS ID (USERID)  : " + busId + "\n" +
                 "PASSWORD         : " + password + "\n" +
-                "DRIVER PORTAL    : http://localhost:8080/driver.html\n" +
                 "--------------------------------------------------\n\n" +
                 "INSTRUCTIONS:\n" +
-                "1. Access the Driver Portal link above.\n" +
+                "1. Open the Goa Transit Driver Android App.\n" +
                 "2. Login using your BUS ID as the User ID and the generated password.\n" +
                 "3. Click 'Start Trip' to begin live location streaming.\n\n" +
                 "Dev Borem Korum,\n" +

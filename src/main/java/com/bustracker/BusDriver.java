@@ -12,6 +12,7 @@ public class BusDriver {
     private String busId;
     private String password;
     private String driverName;
+    private String phoneNumber;
 
     public BusDriver() {}
 
@@ -19,6 +20,11 @@ public class BusDriver {
         this.busId = busId;
         this.password = password;
         this.driverName = driverName;
+    }
+
+    public BusDriver(String busId, String password, String driverName, String phoneNumber) {
+        this(busId, password, driverName);
+        this.phoneNumber = phoneNumber;
     }
 
     public String getBusId() { return busId; }
@@ -29,4 +35,7 @@ public class BusDriver {
 
     public String getDriverName() { return driverName; }
     public void setDriverName(String driverName) { this.driverName = driverName; }
+
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
 }
