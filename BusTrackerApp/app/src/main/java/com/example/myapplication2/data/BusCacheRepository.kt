@@ -25,7 +25,7 @@ object BusCacheRepository {
                 list.add(
                     BusLocation(
                         id = bId,
-                        routeName = item.optString("routeName", "Panaji - Margao"),
+                        routeName = item.optString("routeName", "Panaji - Margao(test)"),
                         destination = item.optString("destination", "Margao"),
                         startPoint = item.optString("startPoint", "Panaji"),
                         latitude = item.optDouble("latitude", 15.4989),

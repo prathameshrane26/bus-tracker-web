@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 object ApiConfig {
     // Configurable server base host.
     // Default host IP or 10.0.2.2 for Android Emulator.
-    var SERVER_HOST: String = "10.97.44.62:8080"
+    var SERVER_HOST: String = "10.97.44.61:8080"
 
     // Re-usable shared OkHttpClient with optimized timeouts
     val sharedHttpClient: OkHttpClient by lazy {
