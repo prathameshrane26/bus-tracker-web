@@ -11,7 +11,7 @@ This file is the complete integration contract for the frontend AI. Implement on
 - Authentication is cookie-based HTTP session authentication, not JWT. After login, retain the `JSESSIONID` cookie and send it on later requests. For browser `fetch`, use `credentials: "include"` on login, logout, and any request that must carry the session cookie. Native clients must use a cookie jar.
 - CORS currently allows all origins.
 - Passwords are currently stored as plain text in the local file-based H2 database. Do not display or log passwords.
-- **Temporary driver testing login:** drivers may authenticate with `busId` (or `busNumber`) and `phoneNumber`; no phone verification or OTP is performed. Password login remains supported for compatibility.
+- **Driver login and whitelist:** drivers may authenticate with `busId` (or `busNumber`) and `phoneNumber`, or username and password, provided their phone number exists in the admin driver whitelist.
 - Live bus locations are held in memory and are lost when the server restarts. Accounts and schedules persist in H2.
 - Error responses are JSON when produced by an endpoint. Unexpected framework errors may use Spring's default error shape.
 

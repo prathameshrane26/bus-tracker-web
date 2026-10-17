@@ -15,10 +15,14 @@ import java.util.Optional;
 public class AuthController {
     private final UserAccountRepository userAccountRepository;
     private final BusDriverRepository busDriverRepository;
+    private final DriverWhitelistRepository driverWhitelistRepository;
 
-    public AuthController(UserAccountRepository userAccountRepository, BusDriverRepository busDriverRepository) {
+    public AuthController(UserAccountRepository userAccountRepository,
+                          BusDriverRepository busDriverRepository,
+                          DriverWhitelistRepository driverWhitelistRepository) {
         this.userAccountRepository = userAccountRepository;
         this.busDriverRepository = busDriverRepository;
+        this.driverWhitelistRepository = driverWhitelistRepository;
     }
 
     @PostMapping("/signup")
@@ -36,8 +40,13 @@ public class AuthController {
         if (username == null) {
             return error(HttpStatus.BAD_REQUEST, "username is required (busId for drivers)");
         }
-        if ("DRIVER".equals(role) && phoneNumber == null) {
-            return error(HttpStatus.BAD_REQUEST, "phoneNumber is required for driver signup");
+        if ("DRIVER".equals(role)) {
+            if (phoneNumber == null) {
+                return error(HttpStatus.BAD_REQUEST, "phoneNumber is required for driver signup");
+            }
+            if (!driverWhitelistRepository.existsById(phoneNumber)) {
+                return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
+            }
         }
         if (!"DRIVER".equals(role) && (request.getPassword() == null || request.getPassword().isBlank())) {
             return error(HttpStatus.BAD_REQUEST, "password is required");
@@ -80,15 +89,23 @@ public class AuthController {
         final String loginPhoneNumber = phoneNumber;
         final String loginPassword = credentials.get("password");
 
-        // Temporary testing mode: any nonblank bus identifier and phone number
-        // creates a driver session without verification or database lookup.
+        // Driver login with phone number (or driver role check)
         if (loginPhoneNumber != null && !"PASSENGER".equals(requestedRole)) {
+            if (!driverWhitelistRepository.existsById(loginPhoneNumber)) {
+                return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
+            }
             return authenticated(loginIdentifier, "DRIVER", "Driver", request);
         }
 
         Optional<UserAccount> account = userAccountRepository.findByUsername(loginIdentifier)
                 .filter(value -> loginPassword != null && loginPassword.equals(value.getPassword()));
         if (account.isPresent() && roleMatches(requestedRole, account.get().getRole())) {
+            if ("DRIVER".equalsIgnoreCase(account.get().getRole())) {
+                String accPhone = account.get().getPhoneNumber();
+                if (accPhone == null || !driverWhitelistRepository.existsById(accPhone.trim())) {
+                    return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
+                }
+            }
             return authenticated(account.get().getUsername(), account.get().getRole(),
                     account.get().getDisplayName(), request);
         }
@@ -98,6 +115,10 @@ public class AuthController {
             Optional<BusDriver> driver = busDriverRepository.findById(loginIdentifier)
                     .filter(value -> loginPassword != null && loginPassword.equals(value.getPassword()));
             if (driver.isPresent()) {
+                String driverPhone = driver.get().getPhoneNumber();
+                if (driverPhone == null || !driverWhitelistRepository.existsById(driverPhone.trim())) {
+                    return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
+                }
                 return authenticated(loginIdentifier, "DRIVER", driver.get().getDriverName(), request);
             }
         }
