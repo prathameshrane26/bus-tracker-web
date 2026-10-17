@@ -1,0 +1,28 @@
+{
+  "startPoints": [
+    "Panaji",
+    "Mapusa",
+    "Ponda",
+    "Bicholim",
+    "Valpoi",
+    "Sanquelim",
+    "Advoi"
+  ],
+  "destinations": [
+    "Panaji",
+    "Mapusa",
+    "Ponda",
+    "Bicholim",
+    "Valpoi",
+    "Sanquelim",
+    "Advoi"
+  ],
+  "routes": [
+    "Panaji-Mapusa-Bicholim-Sanquelim",
+    "Panaji-Mapusa-Bicholim-Sanquelim-Valpoi",
+    "Panaji-Marcel-Sanquelim-Valpoi",
+    "Bicholim-Sanquelim-Honda-Ponda",
+    "Bicholim-Mapusa-Panaji",
+    "Panaji-Marcel-Sanquelim-Advoi"
+  ]
+}

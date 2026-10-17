@@ -1,5 +1,0 @@
-update authentication for driver
-- Login page for driver will have two forms, one is for ktcl drivers and another for private bus owners
-- KTCL drivers login using bus number and password (provided by ktcl), as the drivers change everyday
-- Private bus owners must first signup and wait for approval from ktcl or admin
-    - once they signup with necessary details to verify their license, they can then login once whitelisted
