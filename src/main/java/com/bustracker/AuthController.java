@@ -50,9 +50,10 @@ public class AuthController {
         String displayName = trim(request.getDisplayName());
         if (displayName == null) displayName = "DRIVER".equals(role) ? "Driver" : "Passenger";
         String password = request.getPassword() == null ? "" : request.getPassword();
-        userAccountRepository.save(new UserAccount(username, password, role, displayName, phoneNumber));
+        String busCategory = trim(request.getBusCategory());
+        userAccountRepository.save(new UserAccount(username, password, role, displayName, phoneNumber, busCategory));
         if ("DRIVER".equals(role)) {
-            busDriverRepository.save(new BusDriver(username, password, displayName, phoneNumber));
+            busDriverRepository.save(new BusDriver(username, password, displayName, phoneNumber, busCategory));
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
@@ -122,6 +123,16 @@ public class AuthController {
         if ("DRIVER".equals(role)) {
             response.put("busId", username);
             response.put("driverName", displayName == null ? "Driver" : displayName);
+            
+            // Try to find the busCategory from either the account or the driver record
+            userAccountRepository.findByUsername(username).ifPresent(acc -> {
+                if (acc.getBusCategory() != null) response.put("busCategory", acc.getBusCategory());
+            });
+            if (!response.containsKey("busCategory")) {
+                busDriverRepository.findById(username).ifPresent(d -> {
+                    if (d.getBusCategory() != null) response.put("busCategory", d.getBusCategory());
+                });
+            }
         }
         return ResponseEntity.ok(response);
     }

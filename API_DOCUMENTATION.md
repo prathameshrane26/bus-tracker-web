@@ -51,7 +51,8 @@ Driver signup request:
   "phoneNumber": "+919876543210",
   "password": "123456",
   "role": "DRIVER",
-  "displayName": "Driver Name"
+  "displayName": "Driver Name",
+  "busCategory": "KTCL"
 }
 ```
 
@@ -65,6 +66,7 @@ Request fields:
 | `busId` | string | driver | Used as the driver's username; must not be blank |
 | `phoneNumber` | string | driver | Stored as supplied and used for temporary driver login; no verification is performed |
 | `displayName` | string | no | Defaults to `Passenger` or `Driver` |
+| `busCategory` | string | no | `KTCL` or `Private` |
 
 The backend trims `username`, `busId`, and `displayName`. For a driver, `busId` takes precedence if both `busId` and `username` are sent.
 
@@ -144,7 +146,8 @@ Success: `200 OK` for a driver:
   "role": "DRIVER",
   "displayName": "Driver Name",
   "busId": "GA-03-X-1001",
-  "driverName": "Driver Name"
+  "driverName": "Driver Name",
+  "busCategory": "KTCL"
 }
 ```
 
@@ -203,7 +206,8 @@ Response: `200 OK`
   "longitude": 73.8278,
   "startPoint": "Panaji",
   "destination": "Margao",
-  "routeTaken": "Panaji - Margao"
+  "routeTaken": "Panaji - Margao",
+  "busCategory": "KTCL"
 }
 ```
 
@@ -222,7 +226,8 @@ Response: `200 OK`
     "longitude": 73.8278,
     "startPoint": "Panaji",
     "destination": "Margao",
-    "routeTaken": "Panaji - Margao"
+    "routeTaken": "Panaji - Margao",
+    "busCategory": "KTCL"
   }
 ]
 ```
@@ -231,50 +236,82 @@ The array may be empty. If the backend cannot read schedules, it returns `500 In
 
 ### 3.4 Live SSE stream: `GET /api/buses/locations/stream`
 
-Open a long-lived HTTP Server-Sent Events connection with:
+Open a long-lived HTTP Server-Sent Events connection. This is an on-demand stream that only sends updates for buses requested by the client.
 
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `clientId` | string | yes | A unique identifier for the client's session. Used to manage bus tracking requests for this specific connection. |
+
+**Example:**
 ```http
+GET /api/buses/locations/stream?clientId=my-unique-session-id
 Accept: text/event-stream
 ```
 
-Do not parse this response as one JSON document. Each SSE event has an event name and JSON data. The server sends an initial snapshot immediately, then updates and heartbeats.
+Do not parse this response as one JSON document. Each SSE event has an event name and JSON data.
 
-Initial event:
-
-```text
-event: location-snapshot
-data: [{"busId":"GA-03-X-1001","busNumber":"1001","latitude":15.4901,"longitude":73.8278,"startPoint":"Panaji","destination":"Margao","routeTaken":"Panaji - Margao"}]
-```
-
-Each live update:
-
+#### Events
+Each live update for a tracked bus:
 ```text
 event: location-update
-data: {"busId":"GA-03-X-1001","busNumber":"1001","latitude":15.491,"longitude":73.829,"startPoint":"Panaji","destination":"Margao","routeTaken":"Panaji - Margao"}
+data: {"busId":"GA-03-X-1001","busNumber":"1001","latitude":15.491,"longitude":73.829,"startPoint":"Panaji","destination":"Margao","routeTaken":"Panaji - Margao","busCategory":"KTCL"}
 ```
 
 Bus removal/stop event:
-
 ```text
 event: bus-stopped
 data: [{"busId":"GA-03-X-1001","status":"STOPPED"}]
 ```
 
-Heartbeat, sent every approximately 15 seconds:
-
+Heartbeat, sent approximately every 15 seconds:
 ```text
 event: heartbeat
 data: "keep-alive"
 ```
 
-Client behavior:
+**Client Behavior:**
+1. Connect to the stream with a `clientId`.
+2. Use the **Track Bus** and **Untrack Bus** endpoints (see below) to manage which buses to receive updates for.
+3. The server will send a `location-update` immediately after a bus is tracked if its location is known.
+4. The connection will be closed by the server if there are no more buses being tracked for this `clientId`.
+5. Reconnect after failure using approximately 5 seconds.
 
-1. Apply `location-snapshot` as the initial state.
-2. Merge each `location-update` by `busId`.
-3. Handle `bus-stopped` by removing the bus from the live tracking layer or updating its status to 'STOPPED'. Note: The backend may also send a final `location-update` with the bus's scheduled start coordinates to reset its position on the map.
-4. Ignore `heartbeat` as a map location.
-5. Reconnect after failure using approximately 5 seconds (the server advertises `retry: 5000`).
-6. Close the stream when the passenger view is destroyed.
+### 3.5 Track Bus: `POST /api/buses/track`
+
+Request to start receiving location updates for a specific bus on an active SSE stream.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `clientId` | string | yes | The same ID used to open the SSE stream. |
+| `busId` | string | yes | The ID of the bus to track. |
+
+**Success:** `200 OK`
+```json
+{
+  "status": "SUCCESS",
+  "message": "Tracking bus: GA-03-X-1001"
+}
+```
+
+### 3.6 Untrack Bus: `POST /api/buses/untrack`
+
+Request to stop receiving location updates for a specific bus. If no more buses are tracked, the associated SSE connection will be closed.
+
+**Query Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `clientId` | string | yes | The same ID used to open the SSE stream. |
+| `busId` | string | yes | The ID of the bus to stop tracking. |
+
+**Success:** `200 OK`
+```json
+{
+  "status": "SUCCESS",
+  "message": "Stopped tracking bus: GA-03-X-1001"
+}
+```
 
 ## 4. Driver location upload over STOMP
 
@@ -305,7 +342,8 @@ JSON body:
   "longitude": 73.8278,
   "startPoint": "Panaji",
   "destination": "Margao",
-  "routeTaken": "Panaji - Margao"
+  "routeTaken": "Panaji - Margao",
+  "busCategory": "KTCL"
 }
 ```
 
@@ -320,6 +358,7 @@ Fields:
 | `startPoint` | string | no | Starting location |
 | `destination` | string | no | Current trip destination; may be null |
 | `routeTaken` | string | no | Route taken |
+| `busCategory` | string | no | `KTCL` or `Private` |
 
 There is no REST response to a STOMP send. A null message or blank `busId` is ignored. A valid message replaces the bus's current in-memory location and triggers the SSE/topic notifications below.
 
@@ -388,7 +427,8 @@ Request body:
   "departureTime": "08:30",
   "arrivalTime": "10:00",
   "operatingDays": "MON,TUE,WED,THU,FRI",
-  "busType": "Express"
+  "busType": "Express",
+  "busCategory": "KTCL"
 }
 ```
 
@@ -410,6 +450,7 @@ Fields and types:
 | `arrivalTime` | string | no | Recommended `HH:mm` |
 | `operatingDays` | string | no | Example: `MON,TUE,WED` |
 | `busType` | string | no | Free text |
+| `busCategory` | string | no | `KTCL` or `Private` |
 
 The backend generates a six-digit driver password, saves/replaces the driver credential record, and attempts to email the credentials. Email failure does not change the HTTP success response.
 
@@ -433,7 +474,8 @@ Success: `200 OK`
     "departureTime": "08:30",
     "arrivalTime": "10:00",
     "operatingDays": "MON,TUE,WED,THU,FRI",
-    "busType": "Express"
+    "busType": "Express",
+    "busCategory": "KTCL"
   }
 }
 ```
@@ -481,6 +523,7 @@ interface BusLocationUpdate {
   startPoint: string | null;
   destination: string | null;
   routeTaken: string | null;
+  busCategory: string | null;
 }
 ```
 
@@ -502,6 +545,7 @@ interface BusSchedule {
   arrivalTime: string | null;
   operatingDays: string | null;
   busType: string | null;
+  busCategory: string | null;
 }
 ```
 
@@ -516,6 +560,7 @@ interface PassengerBusStatus {
   startPoint: string | null;
   destination: string | null;
   routeTaken: string | null;
+  busCategory: string | null;
   nextStopName: string | null;
   distanceToNextStopKm: number;
   etaMinutes: number;

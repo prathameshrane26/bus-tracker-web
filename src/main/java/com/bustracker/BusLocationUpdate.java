@@ -8,6 +8,7 @@ public class BusLocationUpdate {
     private String startPoint;
     private String destination;
     private String routeTaken;
+    private String busCategory; // KTCL or Private
 
     // Default No-Arg Constructor (Required by Spring/Jackson for JSON deserialization)
     public BusLocationUpdate() {}
@@ -21,6 +22,11 @@ public class BusLocationUpdate {
         this.startPoint = startPoint;
         this.destination = destination;
         this.routeTaken = routeTaken;
+    }
+
+    public BusLocationUpdate(String busId, String busNumber, double latitude, double longitude, String startPoint, String destination, String routeTaken, String busCategory) {
+        this(busId, busNumber, latitude, longitude, startPoint, destination, routeTaken);
+        this.busCategory = busCategory;
     }
 
     // Getters and Setters
@@ -44,4 +50,7 @@ public class BusLocationUpdate {
 
     public String getRouteTaken() { return routeTaken; }
     public void setRouteTaken(String routeTaken) { this.routeTaken = routeTaken; }
+
+    public String getBusCategory() { return busCategory; }
+    public void setBusCategory(String busCategory) { this.busCategory = busCategory; }
 }

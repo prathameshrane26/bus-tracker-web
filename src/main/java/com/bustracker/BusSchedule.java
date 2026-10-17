@@ -23,6 +23,7 @@ public class BusSchedule {
     private String arrivalTime;
     private String operatingDays;
     private String busType;
+    private String busCategory; // KTCL or Private
 
     public BusSchedule() {}
 
@@ -73,4 +74,7 @@ public class BusSchedule {
 
     public String getBusType() { return busType; }
     public void setBusType(String busType) { this.busType = busType; }
+
+    public String getBusCategory() { return busCategory; }
+    public void setBusCategory(String busCategory) { this.busCategory = busCategory; }
 }

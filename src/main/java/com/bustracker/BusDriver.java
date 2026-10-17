@@ -13,6 +13,7 @@ public class BusDriver {
     private String password;
     private String driverName;
     private String phoneNumber;
+    private String busCategory; // KTCL or Private
 
     public BusDriver() {}
 
@@ -27,6 +28,11 @@ public class BusDriver {
         this.phoneNumber = phoneNumber;
     }
 
+    public BusDriver(String busId, String password, String driverName, String phoneNumber, String busCategory) {
+        this(busId, password, driverName, phoneNumber);
+        this.busCategory = busCategory;
+    }
+
     public String getBusId() { return busId; }
     public void setBusId(String busId) { this.busId = busId; }
 
@@ -38,4 +44,7 @@ public class BusDriver {
 
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+
+    public String getBusCategory() { return busCategory; }
+    public void setBusCategory(String busCategory) { this.busCategory = busCategory; }
 }

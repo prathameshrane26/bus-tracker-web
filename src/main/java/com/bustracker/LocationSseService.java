@@ -6,45 +6,98 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class LocationSseService {
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
+    private static class ClientSession {
+        private final SseEmitter emitter;
+        private final Set<String> trackedBusIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    public SseEmitter subscribe(Collection<BusLocationUpdate> currentLocations) {
+        public ClientSession(SseEmitter emitter) {
+            this.emitter = emitter;
+        }
+
+        public SseEmitter getEmitter() { return emitter; }
+        public Set<String> getTrackedBusIds() { return trackedBusIds; }
+    }
+
+    private final Map<String, ClientSession> clientSessions = new ConcurrentHashMap<>();
+
+    public SseEmitter subscribe(String clientId) {
         SseEmitter emitter = new SseEmitter(0L);
-        emitters.add(emitter);
-        System.out.println("[SSE] Location stream started (active streams=" + emitters.size() + ")");
+        ClientSession session = new ClientSession(emitter);
+        clientSessions.put(clientId, session);
+        System.out.println("[SSE] Client " + clientId + " subscribed (total clients=" + clientSessions.size() + ")");
 
         Runnable removeEmitter = () -> {
-            if (emitters.remove(emitter)) {
-                System.out.println("[SSE] Location stream ended (active streams=" + emitters.size() + ")");
-            }
+            clientSessions.remove(clientId);
+            System.out.println("[SSE] Client " + clientId + " disconnected (total clients=" + clientSessions.size() + ")");
         };
         emitter.onCompletion(removeEmitter);
         emitter.onTimeout(removeEmitter);
         emitter.onError(error -> removeEmitter.run());
 
-        try {
-            send(emitter, "location-snapshot", currentLocations);
-        } catch (IOException exception) {
-            removeEmitter.run();
-            emitter.completeWithError(exception);
-        }
-
         return emitter;
     }
 
+    public void trackBus(String clientId, String busId, BusLocationUpdate currentLocation) {
+        ClientSession session = clientSessions.get(clientId);
+        if (session != null) {
+            session.getTrackedBusIds().add(busId);
+            System.out.println("[SSE] Client " + clientId + " tracking bus: " + busId);
+            if (currentLocation != null) {
+                try {
+                    send(session.getEmitter(), "location-update", currentLocation);
+                } catch (IOException e) {
+                    clientSessions.remove(clientId);
+                    session.getEmitter().completeWithError(e);
+                }
+            }
+        }
+    }
+
+    public void untrackBus(String clientId, String busId) {
+        ClientSession session = clientSessions.get(clientId);
+        if (session != null) {
+            session.getTrackedBusIds().remove(busId);
+            System.out.println("[SSE] Client " + clientId + " stopped tracking bus: " + busId);
+            if (session.getTrackedBusIds().isEmpty()) {
+                System.out.println("[SSE] Client " + clientId + " has no more buses to track. Closing connection.");
+                session.getEmitter().complete();
+                clientSessions.remove(clientId);
+            }
+        }
+    }
+
     public void broadcastLocation(BusLocationUpdate update) {
-        broadcast("location-update", update);
+        String busId = update.getBusId();
+        clientSessions.forEach((clientId, session) -> {
+            if (session.getTrackedBusIds().contains(busId)) {
+                try {
+                    send(session.getEmitter(), "location-update", update);
+                } catch (IOException | IllegalStateException exception) {
+                    clientSessions.remove(clientId);
+                    session.getEmitter().completeWithError(exception);
+                }
+            }
+        });
     }
 
     public void broadcastBusStopped(String busId) {
-        broadcast("bus-stopped", List.of(new BusStoppedEvent(busId)));
+        clientSessions.forEach((clientId, session) -> {
+            if (session.getTrackedBusIds().contains(busId)) {
+                try {
+                    send(session.getEmitter(), "bus-stopped", List.of(new BusStoppedEvent(busId)));
+                } catch (IOException | IllegalStateException exception) {
+                    clientSessions.remove(clientId);
+                    session.getEmitter().completeWithError(exception);
+                }
+            }
+        });
     }
 
     private static class BusStoppedEvent {
@@ -61,18 +114,14 @@ public class LocationSseService {
 
     @Scheduled(fixedRate = 15000)
     public void sendHeartbeat() {
-        broadcast("heartbeat", "keep-alive");
-    }
-
-    private void broadcast(String eventName, Object data) {
-        for (SseEmitter emitter : emitters) {
+        clientSessions.forEach((clientId, session) -> {
             try {
-                send(emitter, eventName, data);
+                send(session.getEmitter(), "heartbeat", "keep-alive");
             } catch (IOException | IllegalStateException exception) {
-                emitters.remove(emitter);
-                emitter.completeWithError(exception);
+                clientSessions.remove(clientId);
+                session.getEmitter().completeWithError(exception);
             }
-        }
+        });
     }
 
     private void send(SseEmitter emitter, String eventName, Object data) throws IOException {

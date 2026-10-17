@@ -8,6 +8,7 @@ public class PassengerBusStatus {
     private String startPoint;
     private String destination;
     private String routeTaken;
+    private String busCategory; // KTCL or Private
     private String nextStopName;
     private double distanceToNextStopKm;
     private long etaMinutes;
@@ -27,6 +28,13 @@ public class PassengerBusStatus {
         this.etaMinutes = etaMinutes;
     }
 
+    public PassengerBusStatus(String busId, String busNumber, double latitude, double longitude, 
+                              String startPoint, String destination, String routeTaken, String busCategory,
+                              String nextStopName, double distanceToNextStopKm, long etaMinutes) {
+        this(busId, busNumber, latitude, longitude, startPoint, destination, routeTaken, nextStopName, distanceToNextStopKm, etaMinutes);
+        this.busCategory = busCategory;
+    }
+
     public String getBusId() { return busId; }
     public String getBusNumber() { return busNumber; }
     public double getLatitude() { return latitude; }
@@ -34,6 +42,7 @@ public class PassengerBusStatus {
     public String getStartPoint() { return startPoint; }
     public String getDestination() { return destination; }
     public String getRouteTaken() { return routeTaken; }
+    public String getBusCategory() { return busCategory; }
     public String getNextStopName() { return nextStopName; }
     public double getDistanceToNextStopKm() { return distanceToNextStopKm; }
     public long getEtaMinutes() { return etaMinutes; }

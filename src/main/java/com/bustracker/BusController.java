@@ -8,6 +8,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -37,7 +38,57 @@ public class BusController {
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
-    private final Map<String, BusLocationUpdate> activeBusLocations = new ConcurrentHashMap<>();
+    private static class BusLocationWithTimestamp {
+        private final BusLocationUpdate location;
+        private final long lastUpdated;
+
+        public BusLocationWithTimestamp(BusLocationUpdate location) {
+            this.location = location;
+            this.lastUpdated = System.currentTimeMillis();
+        }
+
+        public BusLocationUpdate getLocation() { return location; }
+        public long getLastUpdated() { return lastUpdated; }
+    }
+
+    private final Map<String, BusLocationWithTimestamp> activeBusLocations = new ConcurrentHashMap<>();
+
+    @Scheduled(fixedRate = 60000)
+    public void cleanupInactiveBuses() {
+        long now = System.currentTimeMillis();
+        long threshold = 15 * 60 * 1000; // 15 minutes
+
+        activeBusLocations.entrySet().removeIf(entry -> {
+            boolean timedOut = (now - entry.getValue().getLastUpdated()) > threshold;
+            if (timedOut) {
+                String busId = entry.getKey();
+                System.out.println("[BusController] Timeout: Removing bus " + busId + " due to inactivity.");
+                
+                // Notify clients
+                Map<String, String> payload = Map.of("busId", busId, "status", "STOPPED");
+                messagingTemplate.convertAndSend("/topic/bus-stopped", payload);
+                messagingTemplate.convertAndSend("/topic/active-buses", getActiveBusIds());
+                
+                locationSseService.broadcastBusStopped(busId);
+                
+                // Optionally reset to start position
+                Optional<BusSchedule> scheduleOpt = busScheduleRepository.findAll().stream()
+                    .filter(s -> busId.equals(s.getBusId()))
+                    .findFirst();
+                if (scheduleOpt.isPresent()) {
+                    BusSchedule s = scheduleOpt.get();
+                    BusLocationUpdate staticLoc = new BusLocationUpdate(
+                        busId, s.getBusNumber(), s.getStartLatitude(), s.getStartLongitude(),
+                        s.getStartLocation(), s.getDestinationLocation(), s.getRouteName(), s.getBusCategory()
+                    );
+                    locationSseService.broadcastLocation(staticLoc);
+                    messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
+                    messagingTemplate.convertAndSend("/topic/bus/" + busId, staticLoc);
+                }
+            }
+            return timedOut;
+        });
+    }
 
     // ------------------------------------------------------------------------
     // REAL-TIME WEBSOCKET GPS STREAMING
@@ -49,7 +100,7 @@ public class BusController {
             return;
         }
 
-        activeBusLocations.put(update.getBusId(), update);
+        activeBusLocations.put(update.getBusId(), new BusLocationWithTimestamp(update));
         if (busTrackerService != null) {
             busTrackerService.registerActiveBus(update.getBusId());
         }
@@ -92,7 +143,8 @@ public class BusController {
                     schedule.getStartLongitude(),
                     schedule.getStartLocation(),
                     schedule.getDestinationLocation(),
-                    schedule.getRouteName()
+                    schedule.getRouteName(),
+                    schedule.getBusCategory()
                 );
                 // We broadcast this as a location-update so the client sees the bus at its start position (scheduled)
                 locationSseService.broadcastLocation(staticLoc);
@@ -118,12 +170,50 @@ public class BusController {
 
     @GetMapping("/buses/locations")
     public Collection<BusLocationUpdate> getAllActiveLocations() {
-        return activeBusLocations.values();
+        return activeBusLocations.values().stream()
+                .map(BusLocationWithTimestamp::getLocation)
+                .toList();
     }
 
     @GetMapping(value = "/buses/locations/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamActiveLocations() {
-        return locationSseService.subscribe(List.copyOf(activeBusLocations.values()));
+    public SseEmitter streamActiveLocations(@RequestParam String clientId) {
+        return locationSseService.subscribe(clientId);
+    }
+
+    @PostMapping("/buses/track")
+    public ResponseEntity<Map<String, String>> trackBus(@RequestParam String clientId, @RequestParam String busId) {
+        if (clientId == null || clientId.trim().isEmpty() || busId == null || busId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "clientId and busId are required."));
+        }
+        
+        BusLocationWithTimestamp locationWithTimestamp = activeBusLocations.get(busId);
+        BusLocationUpdate currentLocation = locationWithTimestamp != null ? locationWithTimestamp.getLocation() : null;
+        
+        // If not active, maybe it's scheduled but not moving yet?
+        if (currentLocation == null) {
+            Optional<BusSchedule> scheduleOpt = busScheduleRepository.findAll().stream()
+                .filter(s -> busId.equals(s.getBusId()))
+                .findFirst();
+            if (scheduleOpt.isPresent()) {
+                BusSchedule s = scheduleOpt.get();
+                currentLocation = new BusLocationUpdate(
+                    busId, s.getBusNumber(), s.getStartLatitude(), s.getStartLongitude(),
+                    s.getStartLocation(), s.getDestinationLocation(), s.getRouteName(), s.getBusCategory()
+                );
+            }
+        }
+        
+        locationSseService.trackBus(clientId, busId, currentLocation);
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Tracking bus: " + busId));
+    }
+
+    @PostMapping("/buses/untrack")
+    public ResponseEntity<Map<String, String>> untrackBus(@RequestParam String clientId, @RequestParam String busId) {
+        if (clientId == null || clientId.trim().isEmpty() || busId == null || busId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "clientId and busId are required."));
+        }
+        locationSseService.untrackBus(clientId, busId);
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Stopped tracking bus: " + busId));
     }
 
     @GetMapping("/buses/all-scheduled-locations")
@@ -142,7 +232,7 @@ public class BusController {
                 processedBuses.add(busId);
 
                 if (activeBusLocations.containsKey(busId)) {
-                    resultLocations.add(activeBusLocations.get(busId));
+                    resultLocations.add(activeBusLocations.get(busId).getLocation());
                 } else {
                     BusLocationUpdate staticLoc = new BusLocationUpdate(
                         busId,
@@ -151,7 +241,8 @@ public class BusController {
                         schedule.getStartLongitude(),
                         schedule.getStartLocation(),
                         schedule.getDestinationLocation(),
-                        schedule.getRouteName()
+                        schedule.getRouteName(),
+                        schedule.getBusCategory()
                     );
                     resultLocations.add(staticLoc);
                 }
@@ -199,7 +290,7 @@ public class BusController {
 
             // 3. Save or update driver account details for authentication
             String driverName = schedule.getDriverName() != null ? schedule.getDriverName() : "Assigned Driver";
-            busDriverRepository.saveAndFlush(new BusDriver(schedule.getBusId(), generatedPassword, driverName));
+            busDriverRepository.saveAndFlush(new BusDriver(schedule.getBusId(), generatedPassword, driverName, null, schedule.getBusCategory()));
 
             // 4. Send login credentials immediately to the manually entered driver email
             sendCredentialsEmail(schedule.getDriverEmail(), driverName, schedule.getBusId(), generatedPassword);
@@ -212,7 +303,8 @@ public class BusController {
                 schedule.getStartLongitude(),
                 schedule.getStartLocation(),
                 schedule.getDestinationLocation(),
-                schedule.getRouteName()
+                schedule.getRouteName(),
+                schedule.getBusCategory()
             );
 
             messagingTemplate.convertAndSend("/topic/schedule-added", savedSchedule);
@@ -260,6 +352,7 @@ public class BusController {
             existing.setArrivalTime(updatedSchedule.getArrivalTime());
             existing.setOperatingDays(updatedSchedule.getOperatingDays());
             existing.setBusType(updatedSchedule.getBusType());
+            existing.setBusCategory(updatedSchedule.getBusCategory());
 
             BusSchedule saved = busScheduleRepository.saveAndFlush(existing);
 
@@ -267,7 +360,7 @@ public class BusController {
             String newPassword = String.valueOf((int) ((Math.random() * 900000) + 100000));
             String driverName = saved.getDriverName() != null ? saved.getDriverName() : "Assigned Driver";
 
-            busDriverRepository.saveAndFlush(new BusDriver(saved.getBusId(), newPassword, driverName));
+            busDriverRepository.saveAndFlush(new BusDriver(saved.getBusId(), newPassword, driverName, null, saved.getBusCategory()));
 
             // Send updated portal credentials to driver
             sendCredentialsEmail(saved.getDriverEmail(), driverName, saved.getBusId(), newPassword);
@@ -281,7 +374,8 @@ public class BusController {
                 saved.getStartLongitude(),
                 saved.getStartLocation(),
                 saved.getDestinationLocation(),
-                saved.getRouteName()
+                saved.getRouteName(),
+                saved.getBusCategory()
             );
             messagingTemplate.convertAndSend("/topic/bus-locations", staticLoc);
 

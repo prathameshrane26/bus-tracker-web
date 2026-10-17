@@ -16,6 +16,7 @@ public class UserAccount {
     private String role;
     private String displayName;
     private String phoneNumber;
+    private String busCategory; // KTCL or Private
 
     public UserAccount() {}
 
@@ -31,10 +32,16 @@ public class UserAccount {
         this.phoneNumber = phoneNumber;
     }
 
+    public UserAccount(String username, String password, String role, String displayName, String phoneNumber, String busCategory) {
+        this(username, password, role, displayName, phoneNumber);
+        this.busCategory = busCategory;
+    }
+
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public String getPassword() { return password; }
     public String getRole() { return role; }
     public String getDisplayName() { return displayName; }
     public String getPhoneNumber() { return phoneNumber; }
+    public String getBusCategory() { return busCategory; }
 }
