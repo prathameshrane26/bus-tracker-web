@@ -64,8 +64,8 @@ fun PassengerMapView(
         }
     }
 
-    // Auto-center map on selected bus when selectedBusId changes
-    LaunchedEffect(selectedBusId) {
+    // Auto-center map on selected bus when selectedBusId or selectedBus position changes
+    LaunchedEffect(selectedBusId, selectedBus?.latitude, selectedBus?.longitude) {
         val busToCenter = buses.find { it.id == selectedBusId }
         if (busToCenter != null && mapViewInstance != null) {
             mapViewInstance?.controller?.animateTo(
@@ -87,29 +87,54 @@ fun PassengerMapView(
                 }
             },
             update = { mapView ->
-                // Clear old overlays and re-render bus markers
-                mapView.overlays.clear()
+                // Intelligently update locator pin markers without destroying existing overlays
+                val currentMarkers = mapView.overlays.filterIsInstance<Marker>()
+                val activeBusIds = buses.map { it.id }.toSet()
+
+                // Remove stale markers no longer in buses list
+                val staleMarkers = currentMarkers.filter { (it.id ?: it.title) !in activeBusIds }
+                if (staleMarkers.isNotEmpty()) {
+                    mapView.overlays.removeAll(staleMarkers)
+                }
 
                 buses.forEach { bus ->
                     val isTracked = trackedBusIds.contains(bus.id)
-                    val marker = Marker(mapView).apply {
-                        position = GeoPoint(bus.latitude, bus.longitude)
-                        title = bus.id
-                        snippet = "Route: ${bus.routeName}\nDestination: ${bus.destination}${if (isTracked) "\n[LIVE TRACKING]" else ""}"
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    val isSelected = (bus.id == selectedBusId)
+                    val newGeoPoint = GeoPoint(bus.latitude, bus.longitude)
+                    val snippetText = "Route: ${bus.routeName}\nDestination: ${bus.destination}${if (isTracked) "\n[LIVE TRACKING ACTIVE]" else ""}"
 
-                        setOnMarkerClickListener { _, _ ->
-                            onSelectBus(bus)
-                            showInfoWindow()
-                            true
+                    val existingMarker = currentMarkers.find { (it.id ?: it.title) == bus.id }
+
+                    if (existingMarker != null) {
+                        // Dynamically update locator pin position when HTTP SSE message is received
+                        existingMarker.position = newGeoPoint
+                        existingMarker.title = bus.id
+                        existingMarker.snippet = snippetText
+
+                        if (isSelected && !existingMarker.isInfoWindowShown) {
+                            existingMarker.showInfoWindow()
                         }
-                    }
+                    } else {
+                        val marker = Marker(mapView).apply {
+                            id = bus.id
+                            title = bus.id
+                            snippet = snippetText
+                            position = newGeoPoint
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-                    if (bus.id == selectedBusId) {
-                        marker.showInfoWindow()
-                    }
+                            setOnMarkerClickListener { _, _ ->
+                                onSelectBus(bus)
+                                showInfoWindow()
+                                true
+                            }
+                        }
 
-                    mapView.overlays.add(marker)
+                        if (isSelected) {
+                            marker.showInfoWindow()
+                        }
+
+                        mapView.overlays.add(marker)
+                    }
                 }
 
                 mapView.invalidate()

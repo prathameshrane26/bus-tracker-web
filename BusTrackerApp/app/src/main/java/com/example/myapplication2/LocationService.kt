@@ -10,6 +10,10 @@ import androidx.core.app.NotificationCompat
 import com.example.myapplication2.data.ApiConfig
 import com.example.myapplication2.data.StompWebSocketClient
 import com.google.android.gms.location.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class LocationService : Service() {
 
@@ -37,6 +41,7 @@ class LocationService : Service() {
             val action = it.action
             if (action == ACTION_STOP_LOCATION_SERVICE) {
                 runCatching { stompClient.sendStopLocation(busId) }
+                sendHttpStopSharing(busId)
                 stopSelf()
                 return START_NOT_STICKY
             } else if (action == ACTION_REACHED_DESTINATION) {
@@ -54,6 +59,7 @@ class LocationService : Service() {
                     )
                 }
                 runCatching { stompClient.sendStopLocation(busId) }
+                sendHttpStopSharing(busId)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -159,10 +165,34 @@ class LocationService : Service() {
             .build()
     }
 
+    private fun sendHttpStopSharing(targetBusId: String) {
+        if (targetBusId.isBlank()) return
+        Thread {
+            runCatching {
+                val jsonPayload = JSONObject().apply {
+                    put("busId", targetBusId)
+                }.toString()
+                val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                val url = "${ApiConfig.STOP_SHARING_URL}?busId=${targetBusId}"
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+
+                val response = ApiConfig.sharedHttpClient.newCall(request).execute()
+                Log.d("LocationService", "Http stop-sharing response: ${response.code}")
+                response.close()
+            }.onFailure { e ->
+                Log.e("LocationService", "Error sending http stop-sharing: ${e.message}", e)
+            }
+        }.start()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         runCatching {
             stompClient.sendStopLocation(busId)
+            sendHttpStopSharing(busId)
             stompClient.disconnect()
         }
         if (::locationCallback.isInitialized) {

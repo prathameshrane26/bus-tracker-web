@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material.icons.filled.WifiOff
+import android.util.Log
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +35,9 @@ import com.example.myapplication2.ui.map.PassengerMapView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -44,64 +47,54 @@ private fun parseBusLocationsFromJson(jsonString: String): List<BusLocation> {
 
     val raw = jsonString.trim()
     runCatching {
+        fun parseObject(item: JSONObject): BusLocation? {
+            val bId = item.optString("busId", "")
+                .ifBlank { item.optString("id", "") }
+                .ifBlank { item.optString("busNumber", "") }
+                .ifBlank { item.optString("vehicleId", "") }
+            if (bId.isBlank()) return null
+
+            val locObj = item.optJSONObject("location") ?: item.optJSONObject("coords") ?: item
+            val lat = when {
+                locObj.has("latitude") -> locObj.optDouble("latitude", 15.4989)
+                locObj.has("lat") -> locObj.optDouble("lat", 15.4989)
+                else -> 15.4989
+            }
+            val lng = when {
+                locObj.has("longitude") -> locObj.optDouble("longitude", 73.8278)
+                locObj.has("lng") -> locObj.optDouble("lng", 73.8278)
+                else -> 73.8278
+            }
+            val dest = item.optString("destination", "Margao").ifBlank { "Margao" }
+            val start = item.optString("startPoint", "Panaji").ifBlank { "Panaji" }
+            val route = item.optString("routeTaken", item.optString("route", "Panaji-Mapusa-Bicholim-Sanquelim")).ifBlank { "Panaji-Mapusa-Bicholim-Sanquelim" }
+            val category = item.optString("busCategory", "KTCL").ifBlank { "KTCL" }
+            val isStopped = item.optBoolean("stopped", false) ||
+                    item.optString("status", "").equals("STOPPED", ignoreCase = true) ||
+                    (item.has("isActivelySharing") && !item.optBoolean("isActivelySharing"))
+
+            return BusLocation(
+                id = bId,
+                routeName = route,
+                destination = dest,
+                startPoint = start,
+                latitude = lat,
+                longitude = lng,
+                busCategory = category,
+                isActivelySharing = !isStopped,
+                status = if (isStopped) "Stopped" else "In Transit"
+            )
+        }
+
         if (raw.startsWith("[")) {
             val array = JSONArray(raw)
             for (i in 0 until array.length()) {
                 val item = array.getJSONObject(i)
-                val bId = item.optString("busId", "").ifBlank { item.optString("id", "") }
-                if (bId.isBlank()) continue
-                val lat = item.optDouble("latitude", 15.4989)
-                val lng = item.optDouble("longitude", 73.8278)
-                val dest = item.optString("destination", "Margao").ifBlank { "Margao" }
-                val start = item.optString("startPoint", "Panaji").ifBlank { "Panaji" }
-                val route = item.optString("routeTaken", item.optString("route", "Panaji-Mapusa-Bicholim-Sanquelim")).ifBlank { "Panaji-Mapusa-Bicholim-Sanquelim" }
-                val category = item.optString("busCategory", "KTCL").ifBlank { "KTCL" }
-                val isStopped = item.optBoolean("stopped", false) ||
-                        item.optString("status", "").equals("STOPPED", ignoreCase = true) ||
-                        (item.has("isActivelySharing") && !item.optBoolean("isActivelySharing"))
-
-                list.add(
-                    BusLocation(
-                        id = bId,
-                        routeName = route,
-                        destination = dest,
-                        startPoint = start,
-                        latitude = lat,
-                        longitude = lng,
-                        busCategory = category,
-                        isActivelySharing = !isStopped,
-                        status = if (isStopped) "Stopped" else "In Transit"
-                    )
-                )
+                parseObject(item)?.let { list.add(it) }
             }
         } else if (raw.startsWith("{")) {
             val item = JSONObject(raw)
-            val bId = item.optString("busId", "").ifBlank { item.optString("id", "") }
-            if (bId.isNotBlank()) {
-                val lat = item.optDouble("latitude", 15.4989)
-                val lng = item.optDouble("longitude", 73.8278)
-                val dest = item.optString("destination", "Margao").ifBlank { "Margao" }
-                val start = item.optString("startPoint", "Panaji").ifBlank { "Panaji" }
-                val route = item.optString("routeTaken", item.optString("route", "Panaji-Mapusa-Bicholim-Sanquelim")).ifBlank { "Panaji-Mapusa-Bicholim-Sanquelim" }
-                val category = item.optString("busCategory", "KTCL").ifBlank { "KTCL" }
-                val isStopped = item.optBoolean("stopped", false) ||
-                        item.optString("status", "").equals("STOPPED", ignoreCase = true) ||
-                        (item.has("isActivelySharing") && !item.optBoolean("isActivelySharing"))
-
-                list.add(
-                    BusLocation(
-                        id = bId,
-                        routeName = route,
-                        destination = dest,
-                        startPoint = start,
-                        latitude = lat,
-                        longitude = lng,
-                        busCategory = category,
-                        isActivelySharing = !isStopped,
-                        status = if (isStopped) "Stopped" else "In Transit"
-                    )
-                )
-            }
+            parseObject(item)?.let { list.add(it) }
         }
     }
     return list
@@ -159,8 +152,60 @@ fun HomeScreen(
     fun toggleTrackBus(busId: String) {
         if (trackedBusIds.contains(busId)) {
             trackedBusIds.remove(busId)
+
+            // Send HTTP untrack request to backend
+            coroutineScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val url = ApiConfig.getUntrackBusUrl(busId)
+                    val jsonPayload = JSONObject().apply {
+                        put("busId", busId)
+                        put("clientId", ApiConfig.CLIENT_ID)
+                    }.toString()
+                    val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                    val request = Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .build()
+
+                    val response = ApiConfig.sharedHttpClient.newCall(request).execute()
+                    Log.d("HomeScreen", "Untrack request for bus $busId response code: ${response.code}")
+                    response.close()
+                }.onFailure { e ->
+                    Log.e("HomeScreen", "Error sending untrack request for bus $busId: ${e.message}")
+                }
+            }
+
+            Toast.makeText(context, "Stopped live tracking for $busId", Toast.LENGTH_SHORT).show()
         } else {
             trackedBusIds.add(busId)
+            activeSelectedBusId = busId
+
+            // 1. Send HTTP track request to backend (includes mandatory clientId & busId)
+            coroutineScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val url = ApiConfig.getTrackBusUrl(busId)
+                    val jsonPayload = JSONObject().apply {
+                        put("busId", busId)
+                        put("clientId", ApiConfig.CLIENT_ID)
+                    }.toString()
+                    val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                    val request = Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .build()
+
+                    val response = ApiConfig.sharedHttpClient.newCall(request).execute()
+                    Log.d("HomeScreen", "Track request for bus $busId response code: ${response.code}")
+                    response.close()
+                }.onFailure { e ->
+                    Log.e("HomeScreen", "Error sending track request for bus $busId: ${e.message}")
+                }
+            }
+
+            // 2. Start/Ensure HTTP SSE connection is active
+            onStartPassengerTracking(busId)
+
+            Toast.makeText(context, "Started live tracking for $busId", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -179,10 +224,10 @@ fun HomeScreen(
                 runCatching {
                     val mergedFetchedBuses = mutableMapOf<String, BusLocation>()
 
-                    // 1. Fetch active live in-memory bus locations (/api/buses/locations)
-                    val activeReq = Request.Builder().url(ApiConfig.BUS_LOCATIONS_URL).build()
+                    // 1. Fetch active bus summaries (/api/buses/active)
+                    val activeBusesReq = Request.Builder().url(ApiConfig.ACTIVE_BUSES_URL).build()
                     runCatching {
-                        val resp = client.newCall(activeReq).execute()
+                        val resp = client.newCall(activeBusesReq).execute()
                         val body = resp.body?.string() ?: ""
                         resp.close()
                         if (resp.isSuccessful) {
@@ -192,7 +237,30 @@ fun HomeScreen(
                         }
                     }
 
-                    // 2. Fetch scheduled locations (/api/buses/all-scheduled-locations)
+                    // 2. Fetch active live in-memory bus locations (/api/buses/locations)
+                    val activeLocationsReq = Request.Builder().url(ApiConfig.BUS_LOCATIONS_URL).build()
+                    runCatching {
+                        val resp = client.newCall(activeLocationsReq).execute()
+                        val body = resp.body?.string() ?: ""
+                        resp.close()
+                        if (resp.isSuccessful) {
+                            parseBusLocationsFromJson(body).forEach { bus ->
+                                val existing = mergedFetchedBuses[bus.id]
+                                if (existing != null) {
+                                    mergedFetchedBuses[bus.id] = existing.copy(
+                                        latitude = bus.latitude,
+                                        longitude = bus.longitude,
+                                        isActivelySharing = bus.isActivelySharing,
+                                        status = bus.status
+                                    )
+                                } else {
+                                    mergedFetchedBuses[bus.id] = bus
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Fetch scheduled locations (/api/buses/all-scheduled-locations)
                     val scheduledReq = Request.Builder().url(ApiConfig.ALL_SCHEDULED_LOCATIONS_URL).build()
                     runCatching {
                         val resp = client.newCall(scheduledReq).execute()
@@ -210,12 +278,11 @@ fun HomeScreen(
                     val resultList = mergedFetchedBuses.values.toList()
 
                     withContext(Dispatchers.Main) {
+                        defaultBuses.clear()
+                        defaultBuses.addAll(resultList)
                         if (resultList.isNotEmpty()) {
-                            defaultBuses.clear()
-                            defaultBuses.addAll(resultList)
                             BusCacheRepository.saveCachedBuses(context, resultList)
-
-                            if (activeSelectedBusId == null) {
+                            if (activeSelectedBusId == null || defaultBuses.none { it.id == activeSelectedBusId }) {
                                 activeSelectedBusId = resultList.first().id
                             }
                         }
@@ -269,7 +336,18 @@ fun HomeScreen(
                     parsedBuses.forEach { bus ->
                         val index = defaultBuses.indexOfFirst { it.id.equals(bus.id, ignoreCase = true) }
                         if (index != -1) {
-                            defaultBuses[index] = bus
+                            val existing = defaultBuses[index]
+                            defaultBuses[index] = existing.copy(
+                                latitude = bus.latitude,
+                                longitude = bus.longitude,
+                                updatedAt = System.currentTimeMillis() / 1000.0,
+                                isActivelySharing = bus.isActivelySharing,
+                                status = bus.status,
+                                routeName = if (bus.routeName != "Panaji-Mapusa-Bicholim-Sanquelim" || existing.routeName.isBlank()) bus.routeName else existing.routeName,
+                                destination = if (bus.destination != "Margao" || existing.destination.isBlank()) bus.destination else existing.destination,
+                                startPoint = if (bus.startPoint != "Panaji" || existing.startPoint.isBlank()) bus.startPoint else existing.startPoint,
+                                busCategory = if (bus.busCategory != "KTCL" || existing.busCategory.isBlank()) bus.busCategory else existing.busCategory
+                            )
                         } else {
                             defaultBuses.add(bus)
                         }
@@ -296,6 +374,10 @@ fun HomeScreen(
                     },
                     onToggleTrackBus = ::toggleTrackBus,
                     isLoading = isPassengerLoading,
+                    onRefresh = {
+                        fetchTrigger++
+                        Toast.makeText(context, "Refreshing live bus data...", Toast.LENGTH_SHORT).show()
+                    },
                     onCloseDrawer = {
                         coroutineScope.launch { drawerState.close() }
                     }
@@ -340,12 +422,33 @@ fun HomeScreen(
                             }
                         },
                         actions = {
+                            IconButton(
+                                onClick = {
+                                    fetchTrigger++
+                                    Toast.makeText(context, "Refreshing live bus data...", Toast.LENGTH_SHORT).show()
+                                },
+                                enabled = !isPassengerLoading
+                            ) {
+                                if (isPassengerLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Refresh live bus data"
+                                    )
+                                }
+                            }
+
                             FilledTonalButton(
                                 onClick = {
                                     coroutineScope.launch { drawerState.open() }
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier.padding(end = 4.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DirectionsBus,

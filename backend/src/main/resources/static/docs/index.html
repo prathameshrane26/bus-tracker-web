@@ -1,0 +1,2280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracker API Documentation & Playground</title>
+    <!-- Modern developer fonts & icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --accent-blue: #38bdf8;
+            --accent-cyan: #06b6d4;
+            --accent-green: #22c55e;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #a855f7;
+            --method-get: #0284c7;
+            --method-post: #16a34a;
+            --method-put: #d97706;
+            --method-delete: #dc2626;
+            --code-bg: #090d16;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        header {
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-logo {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 1.1rem;
+            padding: 0.35rem 0.6rem;
+            border-radius: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-title h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .version-badge {
+            background-color: rgba(56, 189, 248, 0.15);
+            color: var(--accent-blue);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .session-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-amber);
+        }
+
+        .status-dot.active {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .btn-header {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-header:hover {
+            background: #475569;
+            border-color: #64748b;
+        }
+
+        /* Layout */
+        .layout-container {
+            display: flex;
+            flex: 1;
+            max-width: 1600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 1.25rem 0.75rem;
+            height: calc(100vh - 61px);
+            position: sticky;
+            top: 61px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem 0.5rem 2rem;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.6rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .nav-category {
+            margin-bottom: 1.25rem;
+        }
+
+        .nav-category-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.5rem;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-method {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            min-width: 42px;
+            text-align: center;
+            text-transform: uppercase;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .nav-method.get { background: rgba(2, 132, 199, 0.2); color: var(--accent-blue); }
+        .nav-method.post { background: rgba(22, 163, 74, 0.2); color: var(--accent-green); }
+        .nav-method.put { background: rgba(217, 119, 6, 0.2); color: var(--accent-amber); }
+        .nav-method.delete { background: rgba(220, 38, 38, 0.2); color: var(--accent-red); }
+        .nav-method.ws { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+
+        .nav-path {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Main Content */
+        .content {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            max-width: 1300px;
+        }
+
+        /* Overview Banner */
+        .overview-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .overview-card h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--accent-blue);
+        }
+
+        .overview-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .quick-specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .spec-item {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        .spec-label {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+
+        .spec-val {
+            font-family: 'Fira Code', monospace;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Section Headings */
+        .section-header {
+            margin: 2rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-badge {
+            font-size: 0.75rem;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        /* Endpoint Card */
+        .endpoint-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .endpoint-card:hover {
+            border-color: #475569;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.85rem 1.25rem;
+            cursor: pointer;
+            user-select: none;
+            background: rgba(30, 41, 59, 0.6);
+            border-bottom: 1px solid transparent;
+            transition: background 0.15s;
+        }
+
+        .endpoint-header:hover {
+            background: rgba(51, 65, 85, 0.4);
+        }
+
+        .endpoint-card.open .endpoint-header {
+            border-bottom-color: var(--border-color);
+        }
+
+        .endpoint-summary {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            flex-wrap: wrap;
+        }
+
+        .method-badge {
+            font-family: 'Fira Code', monospace;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .method-badge.get { background: var(--method-get); color: white; }
+        .method-badge.post { background: var(--method-post); color: white; }
+        .method-badge.put { background: var(--method-put); color: white; }
+        .method-badge.delete { background: var(--method-delete); color: white; }
+        .method-badge.ws { background: var(--accent-purple); color: white; }
+
+        .endpoint-path {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .endpoint-title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-left: 0.5rem;
+        }
+
+        .auth-tag {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-weight: 600;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .auth-tag.public {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .endpoint-toggle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            transition: transform 0.2s;
+        }
+
+        .endpoint-card.open .endpoint-toggle {
+            transform: rotate(180deg);
+        }
+
+        /* Endpoint Body / Playground */
+        .endpoint-body {
+            display: none;
+            padding: 1.25rem;
+            background: var(--bg-primary);
+        }
+
+        .endpoint-card.open .endpoint-body {
+            display: block;
+        }
+
+        .endpoint-desc {
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            line-height: 1.6;
+        }
+
+        .endpoint-desc code {
+            font-family: 'Fira Code', monospace;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent-blue);
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            font-size: 0.82rem;
+        }
+
+        /* Form Controls */
+        .param-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .param-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .param-table th {
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .param-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .param-name {
+            font-family: 'Fira Code', monospace;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .param-required {
+            color: var(--accent-red);
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .param-input {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            color: var(--text-primary);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .param-input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        /* Body Editor */
+        .body-editor-container {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .editor-toolbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.35rem 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+        }
+
+        .editor-presets {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .btn-preset {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-preset:hover {
+            background: #475569;
+            color: var(--text-primary);
+        }
+
+        .editor-textarea {
+            width: 100%;
+            min-height: 140px;
+            background: transparent;
+            border: none;
+            padding: 0.75rem;
+            color: #38bdf8;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            outline: none;
+            line-height: 1.4;
+        }
+
+        /* Action Buttons */
+        .action-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .btn-execute {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.25rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+        }
+
+        .btn-execute:hover {
+            background: linear-gradient(135deg, #0369a1, #075985);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+        }
+
+        .btn-execute:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-curl {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-curl:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        /* Response Box */
+        .response-container {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--code-bg);
+            overflow: hidden;
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .response-container.visible {
+            display: block;
+        }
+
+        .response-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .response-status-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-badge {
+            font-family: 'Fira Code', monospace;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .status-2xx { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); border: 1px solid rgba(34, 197, 94, 0.4); }
+        .status-4xx { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.4); }
+        .status-5xx { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.4); }
+
+        .time-badge {
+            color: var(--text-muted);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+
+        .btn-copy {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-copy:hover {
+            color: var(--text-primary);
+            border-color: #64748b;
+        }
+
+        .response-body {
+            padding: 0.85rem;
+            max-height: 380px;
+            overflow: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #e2e8f0;
+        }
+
+        /* Realtime SSE / WS Monitor */
+        .live-monitor {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .monitor-toolbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .monitor-events {
+            padding: 0.75rem;
+            max-height: 280px;
+            overflow-y: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .event-row {
+            padding: 0.4rem 0.6rem;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-cyan);
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .event-meta {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+
+        .event-data {
+            color: #38bdf8;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            font-size: 0.85rem;
+            display: none;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar {
+                display: none;
+            }
+            .content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-brand">
+            <div class="header-logo">BT</div>
+            <div class="header-title">
+                <h1>Bus Tracker API <span class="version-badge">v2.0</span></h1>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="session-status" id="sessionStatusBadge">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="sessionStatusText">Checking Session...</span>
+            </div>
+            <button class="btn-header" onclick="checkAuthStatus()">🔄 Refresh Status</button>
+            <a href="/admin" target="_blank" class="btn-header">⚙️ Admin Panel</a>
+        </div>
+    </header>
+
+    <div class="layout-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="endpointSearch" placeholder="Filter endpoints..." onkeyup="filterEndpoints()">
+            </div>
+
+            <!-- Auth Category -->
+            <div class="nav-category">
+                <div class="nav-category-title">1. Authentication</div>
+                <a href="#endpoint-auth-signup" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/auth/signup</span>
+                </a>
+                <a href="#endpoint-auth-login" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/auth/login</span>
+                </a>
+                <a href="#endpoint-auth-logout" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/auth/logout</span>
+                </a>
+            </div>
+
+            <!-- Admin Category -->
+            <div class="nav-category">
+                <div class="nav-category-title">2. Admin & Whitelist</div>
+                <a href="#endpoint-admin-login" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/admin/login</span>
+                </a>
+                <a href="#endpoint-admin-logout" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/admin/logout</span>
+                </a>
+                <a href="#endpoint-admin-status" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/admin/status</span>
+                </a>
+                <a href="#endpoint-admin-whitelist-get" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/admin/whitelist</span>
+                </a>
+                <a href="#endpoint-admin-whitelist-post" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/admin/whitelist</span>
+                </a>
+                <a href="#endpoint-admin-whitelist-delete" class="nav-link">
+                    <span class="nav-method delete">DEL</span>
+                    <span class="nav-path">/api/admin/whitelist/{phone}</span>
+                </a>
+            </div>
+
+            <!-- Schedules Category -->
+            <div class="nav-category">
+                <div class="nav-category-title">3. Schedules</div>
+                <a href="#endpoint-schedules-get" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/admin/schedules</span>
+                </a>
+                <a href="#endpoint-schedules-post" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/admin/schedules</span>
+                </a>
+                <a href="#endpoint-schedules-put" class="nav-link">
+                    <span class="nav-method put">PUT</span>
+                    <span class="nav-path">/api/admin/schedules/{id}</span>
+                </a>
+                <a href="#endpoint-schedules-delete" class="nav-link">
+                    <span class="nav-method delete">DEL</span>
+                    <span class="nav-path">/api/admin/schedules/{id}</span>
+                </a>
+            </div>
+
+            <!-- Buses & Tracking Category -->
+            <div class="nav-category">
+                <div class="nav-category-title">4. Bus Locations & Tracking</div>
+                <a href="#endpoint-buses-active" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/buses/active</span>
+                </a>
+                <a href="#endpoint-buses-locations" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/buses/locations</span>
+                </a>
+                <a href="#endpoint-buses-all-locations" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/buses/all-scheduled-locations</span>
+                </a>
+                <a href="#endpoint-buses-stop-sharing" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/buses/stop-sharing</span>
+                </a>
+                <a href="#endpoint-buses-track" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/buses/track</span>
+                </a>
+                <a href="#endpoint-buses-untrack" class="nav-link">
+                    <span class="nav-method post">POST</span>
+                    <span class="nav-path">/api/buses/untrack</span>
+                </a>
+                <a href="#endpoint-buses-stream" class="nav-link">
+                    <span class="nav-method get">GET</span>
+                    <span class="nav-path">/api/buses/locations/stream</span>
+                </a>
+            </div>
+
+            <!-- WebSocket Category -->
+            <div class="nav-category">
+                <div class="nav-category-title">5. Real-Time WebSocket</div>
+                <a href="#endpoint-ws-docs" class="nav-link">
+                    <span class="nav-method ws">WS</span>
+                    <span class="nav-path">/ws-bus-tracker</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <!-- Overview Card -->
+            <div class="overview-card">
+                <h2>Interactive Developer Playground</h2>
+                <p>Welcome to the Bus Tracker Backend REST & Real-Time API Console. Test-run endpoints, inspect response structures, view real-time SSE streams, and manage test data with automatic HTTP cookie session persistence.</p>
+                <div class="quick-specs">
+                    <div class="spec-item">
+                        <div class="spec-label">Base URL</div>
+                        <div class="spec-val" id="displayOrigin">http://localhost:8080</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Auth Mechanism</div>
+                        <div class="spec-val">HTTP Cookie (`JSESSIONID`)</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Content Type</div>
+                        <div class="spec-val">application/json</div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-label">Real-time GPS</div>
+                        <div class="spec-val">SSE / WebSocket (STOMP)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 1. AUTHENTICATION SECTION                  -->
+            <!-- ========================================== -->
+            <div class="section-header" id="section-auth">
+                <h2>1. Authentication & Accounts</h2>
+                <span class="section-badge">3 Endpoints</span>
+            </div>
+
+            <!-- POST /api/auth/signup -->
+            <div class="endpoint-card" id="endpoint-auth-signup">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/auth/signup</span>
+                        <span class="endpoint-title">Register Passenger or Driver account</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Creates a persistent account in H2 database. For drivers, <code>phoneNumber</code> is verified against the driver whitelist, and <code>busId</code> is used as the username.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">
+                            <span>Request Body (JSON)</span>
+                            <div class="editor-presets">
+                                <button class="btn-preset" onclick="setPreset('auth-signup-body', 'passenger-signup')">Passenger Template</button>
+                                <button class="btn-preset" onclick="setPreset('auth-signup-body', 'driver-signup')">Driver Template</button>
+                            </div>
+                        </div>
+                        <div class="body-editor-container">
+                            <textarea id="auth-signup-body" class="editor-textarea" spellcheck="false">{
+  "username": "passenger_test",
+  "password": "password123",
+  "role": "PASSENGER",
+  "displayName": "Test Passenger"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/auth/signup', 'auth-signup-body', 'auth-signup-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/auth/signup', 'auth-signup-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="auth-signup-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="auth-signup-resp-status">200 OK</span>
+                                <span class="time-badge" id="auth-signup-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('auth-signup-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="auth-signup-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/auth/login -->
+            <div class="endpoint-card" id="endpoint-auth-login">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/auth/login</span>
+                        <span class="endpoint-title">Log in as Passenger or Driver</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Authenticates user and issues a <code>JSESSIONID</code> session cookie. Drivers can log in with either <code>busId</code> + <code>password</code> or <code>busId</code> + <code>phoneNumber</code> (if whitelisted).</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">
+                            <span>Request Body (JSON)</span>
+                            <div class="editor-presets">
+                                <button class="btn-preset" onclick="setPreset('auth-login-body', 'passenger-login')">Passenger Login</button>
+                                <button class="btn-preset" onclick="setPreset('auth-login-body', 'driver-pass-login')">Driver (Password)</button>
+                                <button class="btn-preset" onclick="setPreset('auth-login-body', 'driver-phone-login')">Driver (Phone Whitelist)</button>
+                            </div>
+                        </div>
+                        <div class="body-editor-container">
+                            <textarea id="auth-login-body" class="editor-textarea" spellcheck="false">{
+  "username": "passenger_test",
+  "password": "password123",
+  "role": "PASSENGER"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/auth/login', 'auth-login-body', 'auth-login-resp', checkAuthStatus)">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/auth/login', 'auth-login-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="auth-login-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="auth-login-resp-status">200 OK</span>
+                                <span class="time-badge" id="auth-login-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('auth-login-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="auth-login-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/auth/logout -->
+            <div class="endpoint-card" id="endpoint-auth-logout">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/auth/logout</span>
+                        <span class="endpoint-title">Log out and invalidate session</span>
+                        <span class="auth-tag">Session</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Invalidates the current HTTP session cookie on the server.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/auth/logout', null, 'auth-logout-resp', checkAuthStatus)">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/auth/logout', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="auth-logout-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="auth-logout-resp-status">200 OK</span>
+                                <span class="time-badge" id="auth-logout-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('auth-logout-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="auth-logout-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 2. ADMIN & WHITELIST SECTION               -->
+            <!-- ========================================== -->
+            <div class="section-header" id="section-admin">
+                <h2>2. Admin Management & Driver Whitelist</h2>
+                <span class="section-badge">6 Endpoints</span>
+            </div>
+
+            <!-- POST /api/admin/login -->
+            <div class="endpoint-card" id="endpoint-admin-login">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/admin/login</span>
+                        <span class="endpoint-title">Admin session authentication</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Logs into the administrator console. Default credentials: <code>admin</code> / <code>admin123</code> (configurable in application.properties).</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Request Body (JSON)</div>
+                        <div class="body-editor-container">
+                            <textarea id="admin-login-body" class="editor-textarea" spellcheck="false">{
+  "username": "admin",
+  "password": "admin123"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/admin/login', 'admin-login-body', 'admin-login-resp', checkAuthStatus)">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/admin/login', 'admin-login-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-login-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-login-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-login-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-login-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-login-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/admin/logout -->
+            <div class="endpoint-card" id="endpoint-admin-logout">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/admin/logout</span>
+                        <span class="endpoint-title">Admin session logout</span>
+                        <span class="auth-tag">Admin</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Invalidates the active admin session.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/admin/logout', null, 'admin-logout-resp', checkAuthStatus)">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/admin/logout', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-logout-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-logout-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-logout-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-logout-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-logout-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GET /api/admin/status -->
+            <div class="endpoint-card" id="endpoint-admin-status">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/admin/status</span>
+                        <span class="endpoint-title">Check current admin session state</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns <code>{"authenticated": true, "username": "admin"}</code> or <code>{"authenticated": false}</code>.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/admin/status', null, 'admin-status-resp', checkAuthStatus)">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/admin/status', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-status-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-status-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-status-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-status-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-status-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GET /api/admin/whitelist -->
+            <div class="endpoint-card" id="endpoint-admin-whitelist-get">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/admin/whitelist</span>
+                        <span class="endpoint-title">List all whitelisted driver phone numbers</span>
+                        <span class="auth-tag">Admin Required</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns all phone numbers permitted for Driver registration and phone-based authentication. Requires active admin session.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/admin/whitelist', null, 'admin-whitelist-get-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/admin/whitelist', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-whitelist-get-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-whitelist-get-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-whitelist-get-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-whitelist-get-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-whitelist-get-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/admin/whitelist -->
+            <div class="endpoint-card" id="endpoint-admin-whitelist-post">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/admin/whitelist</span>
+                        <span class="endpoint-title">Add phone number to driver whitelist</span>
+                        <span class="auth-tag">Admin Required</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Whitelists a phone number so a driver can register and authenticate. Requires active admin session.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Request Body (JSON)</div>
+                        <div class="body-editor-container">
+                            <textarea id="admin-whitelist-post-body" class="editor-textarea" spellcheck="false">{
+  "phoneNumber": "+919876543210"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/admin/whitelist', 'admin-whitelist-post-body', 'admin-whitelist-post-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/admin/whitelist', 'admin-whitelist-post-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-whitelist-post-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-whitelist-post-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-whitelist-post-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-whitelist-post-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-whitelist-post-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DELETE /api/admin/whitelist/{phoneNumber} -->
+            <div class="endpoint-card" id="endpoint-admin-whitelist-delete">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge delete">DELETE</span>
+                        <span class="endpoint-path">/api/admin/whitelist/{phoneNumber}</span>
+                        <span class="endpoint-title">Remove phone number from whitelist</span>
+                        <span class="auth-tag">Admin Required</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Deletes a phone number from the whitelist. Requires active admin session.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Path Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">phoneNumber</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="whitelist-del-phone" class="param-input" value="+919876543210"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeDynamicRequest('DELETE', '/api/admin/whitelist/{phoneNumber}', {phoneNumber: 'whitelist-del-phone'}, null, 'admin-whitelist-del-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyDynamicCurl('DELETE', '/api/admin/whitelist/{phoneNumber}', {phoneNumber: 'whitelist-del-phone'}, null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="admin-whitelist-del-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="admin-whitelist-del-resp-status">200 OK</span>
+                                <span class="time-badge" id="admin-whitelist-del-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('admin-whitelist-del-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="admin-whitelist-del-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 3. BUS SCHEDULES SECTION                   -->
+            <!-- ========================================== -->
+            <div class="section-header" id="section-schedules">
+                <h2>3. Bus Schedules Management</h2>
+                <span class="section-badge">4 Endpoints</span>
+            </div>
+
+            <!-- GET /api/admin/schedules -->
+            <div class="endpoint-card" id="endpoint-schedules-get">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/admin/schedules</span>
+                        <span class="endpoint-title">List all bus schedules</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Retrieves all bus schedules stored in the database, including routes, stops, coordinates, driver names, and categories.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/admin/schedules', null, 'schedules-get-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/admin/schedules', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="schedules-get-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="schedules-get-resp-status">200 OK</span>
+                                <span class="time-badge" id="schedules-get-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('schedules-get-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="schedules-get-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/admin/schedules -->
+            <div class="endpoint-card" id="endpoint-schedules-post">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/admin/schedules</span>
+                        <span class="endpoint-title">Create a new bus schedule</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Creates a bus schedule, auto-generates a driver account with random 6-digit password, sends login email to driver, and broadcasts WebSocket event.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Request Body (JSON)</div>
+                        <div class="body-editor-container">
+                            <textarea id="schedules-post-body" class="editor-textarea" style="min-height: 220px;" spellcheck="false">{
+  "busId": "GA-03-X-1001",
+  "busNumber": "KTC-101",
+  "driverName": "Rajesh Naik",
+  "driverEmail": "driver@example.com",
+  "routeName": "Panaji - Margao Express",
+  "startLocation": "Panaji Bus Stand",
+  "destinationLocation": "Margao KTC Bus Stand",
+  "startLatitude": 15.4989,
+  "startLongitude": 73.8278,
+  "departureTime": "08:30",
+  "arrivalTime": "09:45",
+  "operatingDays": "Mon,Tue,Wed,Thu,Fri,Sat",
+  "busType": "AC EV Shuttle",
+  "busCategory": "KTCL"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/admin/schedules', 'schedules-post-body', 'schedules-post-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/admin/schedules', 'schedules-post-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="schedules-post-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="schedules-post-resp-status">200 OK</span>
+                                <span class="time-badge" id="schedules-post-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('schedules-post-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="schedules-post-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PUT /api/admin/schedules/{scheduleId} -->
+            <div class="endpoint-card" id="endpoint-schedules-put">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge put">PUT</span>
+                        <span class="endpoint-path">/api/admin/schedules/{scheduleId}</span>
+                        <span class="endpoint-title">Update an existing bus schedule</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Updates schedule information, generates a new driver password, and sends updated email notification.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Path Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">scheduleId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="schedules-put-id" class="param-input" placeholder="e.g. SCH-12345678"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-title">Request Body (JSON)</div>
+                        <div class="body-editor-container">
+                            <textarea id="schedules-put-body" class="editor-textarea" style="min-height: 200px;" spellcheck="false">{
+  "busId": "GA-03-X-1001",
+  "busNumber": "KTC-101",
+  "driverName": "Rajesh Naik",
+  "driverEmail": "driver@example.com",
+  "routeName": "Panaji - Margao Direct",
+  "startLocation": "Panaji Bus Stand",
+  "destinationLocation": "Margao KTC Bus Stand",
+  "startLatitude": 15.4989,
+  "startLongitude": 73.8278,
+  "departureTime": "09:00",
+  "arrivalTime": "10:15",
+  "operatingDays": "Daily",
+  "busType": "AC Express",
+  "busCategory": "KTCL"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeDynamicRequest('PUT', '/api/admin/schedules/{scheduleId}', {scheduleId: 'schedules-put-id'}, 'schedules-put-body', 'schedules-put-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyDynamicCurl('PUT', '/api/admin/schedules/{scheduleId}', {scheduleId: 'schedules-put-id'}, 'schedules-put-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="schedules-put-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="schedules-put-resp-status">200 OK</span>
+                                <span class="time-badge" id="schedules-put-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('schedules-put-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="schedules-put-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DELETE /api/admin/schedules/{scheduleId} -->
+            <div class="endpoint-card" id="endpoint-schedules-delete">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge delete">DELETE</span>
+                        <span class="endpoint-path">/api/admin/schedules/{scheduleId}</span>
+                        <span class="endpoint-title">Delete a bus schedule</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Removes schedule and broadcasts removal notification over WebSockets (<code>/topic/schedule-deleted</code>).</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Path Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">scheduleId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="schedules-del-id" class="param-input" placeholder="e.g. SCH-12345678"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeDynamicRequest('DELETE', '/api/admin/schedules/{scheduleId}', {scheduleId: 'schedules-del-id'}, null, 'schedules-del-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyDynamicCurl('DELETE', '/api/admin/schedules/{scheduleId}', {scheduleId: 'schedules-del-id'}, null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="schedules-del-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="schedules-del-resp-status">200 OK</span>
+                                <span class="time-badge" id="schedules-del-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('schedules-del-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="schedules-del-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 4. BUS LOCATIONS & TRACKING SECTION        -->
+            <!-- ========================================== -->
+            <div class="section-header" id="section-buses">
+                <h2>4. Bus Locations & Live Tracking</h2>
+                <span class="section-badge">7 Endpoints</span>
+            </div>
+
+            <!-- GET /api/buses/active -->
+            <div class="endpoint-card" id="endpoint-buses-active">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/buses/active</span>
+                        <span class="endpoint-title">List active bus IDs currently transmitting GPS</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns a set of bus IDs (e.g. <code>["GA-03-X-1001", "GA-01-T-5522"]</code>) that are currently actively streaming location updates.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/buses/active', null, 'buses-active-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/buses/active', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-active-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-active-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-active-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-active-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-active-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GET /api/buses/locations -->
+            <div class="endpoint-card" id="endpoint-buses-locations">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/buses/locations</span>
+                        <span class="endpoint-title">List all current active bus locations</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns an array of full location objects with live GPS coordinates, speed, route, and category for all actively moving buses.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/buses/locations', null, 'buses-locations-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/buses/locations', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-locations-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-locations-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-locations-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-locations-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-locations-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GET /api/buses/all-scheduled-locations -->
+            <div class="endpoint-card" id="endpoint-buses-all-locations">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/buses/all-scheduled-locations</span>
+                        <span class="endpoint-title">Get all scheduled + active bus positions</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Returns bus positions for all scheduled buses: if the bus is currently live streaming GPS, its live location is returned; otherwise, its start station coordinate is returned.</p>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('GET', '/api/buses/all-scheduled-locations', null, 'buses-all-loc-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('GET', '/api/buses/all-scheduled-locations', null)">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-all-loc-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-all-loc-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-all-loc-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-all-loc-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-all-loc-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/buses/stop-sharing -->
+            <div class="endpoint-card" id="endpoint-buses-stop-sharing">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/buses/stop-sharing</span>
+                        <span class="endpoint-title">Driver stops location sharing</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Notifies the server and subscribers that the bus has stopped sharing GPS location.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Request Body (JSON)</div>
+                        <div class="body-editor-container">
+                            <textarea id="buses-stop-sharing-body" class="editor-textarea" spellcheck="false">{
+  "busId": "GA-03-X-1001"
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeRequest('POST', '/api/buses/stop-sharing', 'buses-stop-sharing-body', 'buses-stop-sharing-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyCurl('POST', '/api/buses/stop-sharing', 'buses-stop-sharing-body')">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-stop-sharing-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-stop-sharing-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-stop-sharing-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-stop-sharing-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-stop-sharing-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/buses/track -->
+            <div class="endpoint-card" id="endpoint-buses-track">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/buses/track</span>
+                        <span class="endpoint-title">Passenger registers bus tracking filter</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Associates a connected SSE client session with a specific bus ID to receive targeted updates.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Query Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">clientId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="track-client-id" class="param-input" value="client_dev_1"></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">busId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="track-bus-id" class="param-input" value="GA-03-X-1001"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeQueryParamsRequest('POST', '/api/buses/track', {clientId: 'track-client-id', busId: 'track-bus-id'}, 'buses-track-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyQueryParamsCurl('POST', '/api/buses/track', {clientId: 'track-client-id', busId: 'track-bus-id'})">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-track-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-track-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-track-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-track-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-track-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POST /api/buses/untrack -->
+            <div class="endpoint-card" id="endpoint-buses-untrack">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge post">POST</span>
+                        <span class="endpoint-path">/api/buses/untrack</span>
+                        <span class="endpoint-title">Passenger untracks a bus</span>
+                        <span class="auth-tag public">Public</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Removes bus tracking association for the specified client ID.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Query Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">clientId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="untrack-client-id" class="param-input" value="client_dev_1"></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">busId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="untrack-bus-id" class="param-input" value="GA-03-X-1001"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" onclick="executeQueryParamsRequest('POST', '/api/buses/untrack', {clientId: 'untrack-client-id', busId: 'untrack-bus-id'}, 'buses-untrack-resp')">▶ Send Request</button>
+                        <button class="btn-curl" onclick="copyQueryParamsCurl('POST', '/api/buses/untrack', {clientId: 'untrack-client-id', busId: 'untrack-bus-id'})">Copy cURL</button>
+                    </div>
+
+                    <div class="response-container" id="buses-untrack-resp">
+                        <div class="response-header">
+                            <div class="response-status-group">
+                                <span class="status-badge" id="buses-untrack-resp-status">200 OK</span>
+                                <span class="time-badge" id="buses-untrack-resp-time">0 ms</span>
+                            </div>
+                            <button class="btn-copy" onclick="copyResponse('buses-untrack-resp-body')">Copy JSON</button>
+                        </div>
+                        <pre class="response-body" id="buses-untrack-resp-body"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GET /api/buses/locations/stream -->
+            <div class="endpoint-card" id="endpoint-buses-stream">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge get">GET</span>
+                        <span class="endpoint-path">/api/buses/locations/stream</span>
+                        <span class="endpoint-title">Live Server-Sent Events (SSE) stream</span>
+                        <span class="auth-tag public">Public (text/event-stream)</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">Subscribes to live SSE broadcast stream for real-time bus location updates and stopped events. Connect below to monitor stream events in real time.</p>
+                    
+                    <div class="param-group">
+                        <div class="param-title">Query Parameters</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">clientId</span> <span class="param-required">*</span></td>
+                                    <td>string</td>
+                                    <td><input type="text" id="sse-client-id" class="param-input" value="web_dev_client_123"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="btn-execute" id="btnSseToggle" onclick="toggleSseStream()">▶ Connect SSE Stream</button>
+                        <button class="btn-curl" onclick="clearSseLogs()">Clear Log</button>
+                    </div>
+
+                    <!-- SSE Event Monitor Box -->
+                    <div class="live-monitor">
+                        <div class="monitor-toolbar">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Real-Time Event Stream Log</span>
+                            <span id="sseStatusIndicator" style="font-size: 0.75rem; color: var(--accent-amber);">Disconnected</span>
+                        </div>
+                        <div class="monitor-events" id="sseEventsContainer">
+                            <div style="color: var(--text-muted); font-style: italic; font-size: 0.75rem;">Click 'Connect SSE Stream' to listen for live events...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 5. WEBSOCKET / STOMP SECTION               -->
+            <!-- ========================================== -->
+            <div class="section-header" id="endpoint-ws-docs">
+                <h2>5. Real-Time WebSocket & STOMP Protocol</h2>
+                <span class="section-badge">WebSocket API</span>
+            </div>
+
+            <div class="endpoint-card open">
+                <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                    <div class="endpoint-summary">
+                        <span class="method-badge ws">WS</span>
+                        <span class="endpoint-path">/ws-bus-tracker</span>
+                        <span class="endpoint-title">SockJS & STOMP Real-Time Gateway</span>
+                    </div>
+                    <span class="endpoint-toggle">▼</span>
+                </div>
+                <div class="endpoint-body">
+                    <p class="endpoint-desc">The backend provides a full duplex WebSocket interface using STOMP over SockJS at <code>/ws-bus-tracker</code>. Drivers publish GPS updates via STOMP, and passengers/apps subscribe to topic channels.</p>
+
+                    <div class="param-group">
+                        <div class="param-title">Broadcast Topics (Subscriptions)</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Topic Destination</th>
+                                    <th>Description</th>
+                                    <th>Payload Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">/topic/bus-locations</span></td>
+                                    <td>All live bus GPS updates broadcasted system-wide</td>
+                                    <td><code>BusLocationUpdate</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">/topic/bus/{busId}</span></td>
+                                    <td>Targeted updates for a specific bus (e.g. <code>/topic/bus/GA-03-X-1001</code>)</td>
+                                    <td><code>BusLocationUpdate</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">/topic/active-buses</span></td>
+                                    <td>Set of currently active bus IDs</td>
+                                    <td><code>Set&lt;String&gt;</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">/topic/bus-stopped</span></td>
+                                    <td>Fired when a driver stops location sharing</td>
+                                    <td><code>{"busId": "...", "status": "STOPPED"}</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">/topic/schedule-added</span></td>
+                                    <td>Fired when admin adds or updates a schedule</td>
+                                    <td><code>BusSchedule</code></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="param-name">/topic/schedule-deleted</span></td>
+                                    <td>Fired when admin deletes a schedule</td>
+                                    <td><code>{"scheduleId": "...", "busId": "..."}</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="param-group">
+                        <div class="param-title">Driver Location Streaming Endpoint</div>
+                        <table class="param-table">
+                            <thead>
+                                <tr>
+                                    <th>Application Destination</th>
+                                    <th>Direction</th>
+                                    <th>Sample Payload</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="param-name">/app/update-location</span></td>
+                                    <td>Client ➔ Server</td>
+                                    <td><code>{"busId":"GA-03-X-1001","latitude":15.4989,"longitude":73.8278,"speed":45.2,"busCategory":"KTCL"}</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast"></div>
+
+    <script>
+        const baseUrl = window.location.origin;
+        document.getElementById('displayOrigin').textContent = baseUrl;
+
+        // Toggle endpoint cards
+        function toggleEndpoint(element) {
+            const card = element.closest('.endpoint-card');
+            card.classList.toggle('open');
+        }
+
+        // Show Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2500);
+        }
+
+        // Check Auth Status
+        async function checkAuthStatus() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('sessionStatusText');
+            try {
+                const res = await fetch(`${baseUrl}/api/admin/status`, { credentials: 'include' });
+                const data = await res.json();
+                if (data.authenticated) {
+                    statusDot.className = 'status-dot active';
+                    statusText.textContent = `Admin (${data.username})`;
+                } else {
+                    statusDot.className = 'status-dot';
+                    statusText.textContent = 'Public / Guest Session';
+                }
+            } catch (e) {
+                statusDot.className = 'status-dot';
+                statusText.textContent = 'Server Unavailable';
+            }
+        }
+
+        // Search / Filter Endpoints
+        function filterEndpoints() {
+            const query = document.getElementById('endpointSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.endpoint-card');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? '' : 'none';
+            });
+
+            navLinks.forEach(link => {
+                const text = link.textContent.toLowerCase();
+                link.style.display = text.includes(query) ? '' : 'none';
+            });
+        }
+
+        // Presets Helper
+        const presets = {
+            'passenger-signup': {
+                username: "passenger_test",
+                password: "password123",
+                role: "PASSENGER",
+                displayName: "Test Passenger"
+            },
+            'driver-signup': {
+                busId: "GA-03-X-1001",
+                phoneNumber: "+919876543210",
+                password: "password123",
+                role: "DRIVER",
+                displayName: "Test Driver",
+                busCategory: "KTCL"
+            },
+            'passenger-login': {
+                username: "passenger_test",
+                password: "password123",
+                role: "PASSENGER"
+            },
+            'driver-pass-login': {
+                busId: "GA-03-X-1001",
+                password: "password123",
+                role: "DRIVER"
+            },
+            'driver-phone-login': {
+                busId: "GA-03-X-1001",
+                phoneNumber: "+919876543210",
+                role: "DRIVER"
+            }
+        };
+
+        function setPreset(textareaId, presetKey) {
+            const val = presets[presetKey];
+            if (val) {
+                document.getElementById(textareaId).value = JSON.stringify(val, null, 2);
+            }
+        }
+
+        // Execute Standard Request
+        async function executeRequest(method, path, bodyId, respContainerId, callback) {
+            const container = document.getElementById(respContainerId);
+            const statusEl = document.getElementById(`${respContainerId}-status`);
+            const timeEl = document.getElementById(`${respContainerId}-time`);
+            const bodyEl = document.getElementById(`${respContainerId}-body`);
+
+            container.classList.add('visible');
+            statusEl.className = 'status-badge';
+            statusEl.textContent = 'Sending...';
+            timeEl.textContent = '';
+            bodyEl.textContent = 'Executing request against ' + path + '...';
+
+            const startTime = performance.now();
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            };
+
+            if (bodyId && (method === 'POST' || method === 'PUT')) {
+                const bodyText = document.getElementById(bodyId).value;
+                try {
+                    // validate json
+                    if (bodyText.trim()) {
+                        JSON.parse(bodyText);
+                        options.body = bodyText;
+                    }
+                } catch (e) {
+                    statusEl.className = 'status-badge status-4xx';
+                    statusEl.textContent = 'Invalid JSON';
+                    bodyEl.textContent = 'JSON Syntax Error: ' + e.message;
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch(`${baseUrl}${path}`, options);
+                const duration = Math.round(performance.now() - startTime);
+                timeEl.textContent = `${duration} ms`;
+
+                const statusCode = response.status;
+                const statusText = response.statusText || '';
+                statusEl.textContent = `${statusCode} ${statusText}`;
+
+                if (statusCode >= 200 && statusCode < 300) {
+                    statusEl.className = 'status-badge status-2xx';
+                } else if (statusCode >= 400 && statusCode < 500) {
+                    statusEl.className = 'status-badge status-4xx';
+                } else {
+                    statusEl.className = 'status-badge status-5xx';
+                }
+
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const json = await response.json();
+                    bodyEl.textContent = JSON.stringify(json, null, 2);
+                } else {
+                    const text = await response.text();
+                    bodyEl.textContent = text || `[HTTP ${statusCode} Empty Response Body]`;
+                }
+
+                if (callback) callback();
+            } catch (err) {
+                const duration = Math.round(performance.now() - startTime);
+                timeEl.textContent = `${duration} ms`;
+                statusEl.className = 'status-badge status-5xx';
+                statusEl.textContent = 'Network Error';
+                bodyEl.textContent = 'Fetch failed: ' + err.message;
+            }
+        }
+
+        // Execute Dynamic Path Request
+        async function executeDynamicRequest(method, pathTemplate, paramMap, bodyId, respContainerId) {
+            let path = pathTemplate;
+            for (const [key, inputId] of Object.entries(paramMap)) {
+                const val = document.getElementById(inputId).value.trim();
+                path = path.replace(`{${key}}`, encodeURIComponent(val));
+            }
+            executeRequest(method, path, bodyId, respContainerId);
+        }
+
+        // Execute Query Parameters Request
+        async function executeQueryParamsRequest(method, basePath, queryMap, respContainerId) {
+            const queryParams = new URLSearchParams();
+            for (const [key, inputId] of Object.entries(queryMap)) {
+                const val = document.getElementById(inputId).value.trim();
+                if (val) queryParams.append(key, val);
+            }
+            const fullPath = `${basePath}?${queryParams.toString()}`;
+            executeRequest(method, fullPath, null, respContainerId);
+        }
+
+        // Copy Curl command
+        function copyCurl(method, path, bodyId) {
+            let cmd = `curl -X ${method} "${baseUrl}${path}"`;
+            cmd += ` \\\n  -H "Content-Type: application/json"`;
+            if (bodyId && (method === 'POST' || method === 'PUT')) {
+                const bodyText = document.getElementById(bodyId).value.replace(/"/g, '\\"');
+                cmd += ` \\\n  -d "${bodyText.replace(/\n/g, '')}"`;
+            }
+            navigator.clipboard.writeText(cmd).then(() => showToast('cURL command copied to clipboard!'));
+        }
+
+        function copyDynamicCurl(method, pathTemplate, paramMap, bodyId) {
+            let path = pathTemplate;
+            for (const [key, inputId] of Object.entries(paramMap)) {
+                const val = document.getElementById(inputId).value.trim();
+                path = path.replace(`{${key}}`, encodeURIComponent(val));
+            }
+            copyCurl(method, path, bodyId);
+        }
+
+        function copyQueryParamsCurl(method, basePath, queryMap) {
+            const queryParams = new URLSearchParams();
+            for (const [key, inputId] of Object.entries(queryMap)) {
+                const val = document.getElementById(inputId).value.trim();
+                if (val) queryParams.append(key, val);
+            }
+            copyCurl(method, `${basePath}?${queryParams.toString()}`, null);
+        }
+
+        function copyResponse(bodyId) {
+            const text = document.getElementById(bodyId).textContent;
+            navigator.clipboard.writeText(text).then(() => showToast('Response JSON copied to clipboard!'));
+        }
+
+        // SSE Real-time Stream Client
+        let sseSource = null;
+
+        function toggleSseStream() {
+            const btn = document.getElementById('btnSseToggle');
+            const statusIndicator = document.getElementById('sseStatusIndicator');
+            const clientId = document.getElementById('sse-client-id').value.trim() || 'dev_client_1';
+
+            if (sseSource) {
+                sseSource.close();
+                sseSource = null;
+                btn.textContent = '▶ Connect SSE Stream';
+                btn.style.background = '';
+                statusIndicator.textContent = 'Disconnected';
+                statusIndicator.style.color = 'var(--accent-amber)';
+                appendSseLog('SYSTEM', 'SSE Stream disconnected.');
+                return;
+            }
+
+            const streamUrl = `${baseUrl}/api/buses/locations/stream?clientId=${encodeURIComponent(clientId)}`;
+            appendSseLog('SYSTEM', `Connecting to ${streamUrl}...`);
+
+            try {
+                sseSource = new EventSource(streamUrl);
+
+                sseSource.onopen = () => {
+                    btn.textContent = '⏹ Disconnect SSE Stream';
+                    btn.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+                    statusIndicator.textContent = 'Connected (Listening)';
+                    statusIndicator.style.color = 'var(--accent-green)';
+                    appendSseLog('CONNECTED', 'Stream connection established.');
+                };
+
+                sseSource.addEventListener('location-update', (event) => {
+                    console.log('SSE Location Update:', event.data);
+                    try {
+                        console.log('Parsed Location:', JSON.parse(event.data));
+                    } catch (e) {}
+                    appendSseLog('LOCATION_UPDATE', event.data);
+                });
+
+                sseSource.addEventListener('bus-stopped', (event) => {
+                    console.log('SSE Bus Stopped:', event.data);
+                    appendSseLog('BUS_STOPPED', event.data);
+                });
+
+                sseSource.addEventListener('heartbeat', (event) => {
+                    console.log('SSE Heartbeat:', event.data);
+                });
+
+                sseSource.onmessage = (event) => {
+                    console.log('SSE Message:', event.data);
+                    appendSseLog('MESSAGE', event.data);
+                };
+
+                sseSource.onerror = (err) => {
+                    appendSseLog('ERROR', 'SSE Connection closed or encountered error.');
+                };
+            } catch (err) {
+                appendSseLog('ERROR', err.message);
+            }
+        }
+
+        function appendSseLog(type, data) {
+            const container = document.getElementById('sseEventsContainer');
+            const row = document.createElement('div');
+            row.className = 'event-row';
+            const now = new Date().toLocaleTimeString();
+
+            let formattedData = data;
+            try {
+                const parsed = JSON.parse(data);
+                formattedData = JSON.stringify(parsed, null, 2);
+            } catch (e) {}
+
+            row.innerHTML = `
+                <div class="event-meta">
+                    <span style="font-weight: 600; color: var(--accent-cyan);">${type}</span>
+                    <span>${now}</span>
+                </div>
+                <div class="event-data">${formattedData}</div>
+            `;
+            container.appendChild(row);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearSseLogs() {
+            document.getElementById('sseEventsContainer').innerHTML = '';
+        }
+
+        // Init
+        checkAuthStatus();
+    </script>
+</body>
+</html>

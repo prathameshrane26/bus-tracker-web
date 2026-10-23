@@ -34,6 +34,7 @@ fun ActiveBusesSidePanel(
     onSelectBus: (BusLocation) -> Unit,
     onToggleTrackBus: (String) -> Unit = {},
     isLoading: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     onCloseDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -99,8 +100,21 @@ fun ActiveBusesSidePanel(
                     }
                 }
 
-                IconButton(onClick = onCloseDrawer) {
-                    Icon(Icons.Default.Close, contentDescription = "Close Menu")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    onRefresh?.let { refreshAction ->
+                        IconButton(
+                            onClick = refreshAction,
+                            enabled = !isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh Buses"
+                            )
+                        }
+                    }
+                    IconButton(onClick = onCloseDrawer) {
+                        Icon(Icons.Default.Close, contentDescription = "Close Menu")
+                    }
                 }
             }
 

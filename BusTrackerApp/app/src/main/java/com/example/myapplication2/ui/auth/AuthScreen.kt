@@ -1,5 +1,6 @@
 package com.example.myapplication2.ui.auth
 
+import android.util.Log
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
@@ -10,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
@@ -159,6 +159,40 @@ fun AuthScreen(
                     onStopPassengerTracking = onStopPassengerTracking,
                     onLogout = {
                         authErrorMessage = null
+                        if (selectedRole == UserRole.DRIVER) {
+                            // 1. Stop location service / driver broadcasting
+                            onStopDriverBroadcasting(false)
+
+                            // 2. Send request to backend to stop tracking
+                            val currentBusId = busId
+                            if (currentBusId.isNotBlank()) {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    runCatching {
+                                        val jsonPayload = JSONObject().apply {
+                                            put("busId", currentBusId)
+                                        }.toString()
+                                        val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                                        val url = "${ApiConfig.STOP_SHARING_URL}?busId=${currentBusId}"
+                                        val request = Request.Builder()
+                                            .url(url)
+                                            .post(requestBody)
+                                            .build()
+
+                                        val response = httpClient.newCall(request).execute()
+                                        Log.d("AuthScreen", "Driver logout stop-sharing response code: ${response.code}")
+                                        response.close()
+                                    }.onFailure { e ->
+                                        Log.e("AuthScreen", "Failed to send stop-sharing request on driver logout: ${e.message}")
+                                    }
+                                }
+                            }
+
+                            // Reset driver session fields
+                            busId = ""
+                            loggedInUserEmail = ""
+                        } else {
+                            onStopPassengerTracking()
+                        }
                         viewState = AuthViewState.LOGIN
                     },
                     liveBusData = liveBusData

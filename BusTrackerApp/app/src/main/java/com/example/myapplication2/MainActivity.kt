@@ -29,8 +29,10 @@ import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
-    private val httpClient = ApiConfig.sharedHttpClient
+    private val sseHttpClient = ApiConfig.sseHttpClient
     private var eventSource: EventSource? = null
+    private var isSseTrackingActive = false
+    private val reconnectHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var liveBusDataState by mutableStateOf<String?>(null)
     private var activeDriverBusId: String = ""
     private var activeDriverBusCategory: String = "KTCL"
@@ -135,6 +137,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startSseStream() {
+        if (isSseTrackingActive && eventSource != null) {
+            android.util.Log.d("MainActivity_SSE", "SSE Stream connection is already active.")
+            return
+        }
+
+        isSseTrackingActive = true
+        reconnectHandler.removeCallbacksAndMessages(null)
         eventSource?.cancel()
 
         val request = Request.Builder()
@@ -143,16 +152,23 @@ class MainActivity : ComponentActivity() {
             .build()
 
         val listener = object : EventSourceListener() {
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                android.util.Log.d("MainActivity_SSE", "SSE Stream connected successfully to ${ApiConfig.SSE_LOCATIONS_STREAM_URL}")
+            }
+
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 // Ignore keep-alive heartbeats
                 if (type == "heartbeat" || data.contains("keep-alive")) {
                     return
                 }
 
+                android.util.Log.d("MainActivity_SSE", "Received SSE Event ($type): $data")
+
                 val eventType = type ?: "location-update"
                 val wrapped = JSONObject().apply {
                     put("eventType", eventType)
                     put("payload", data)
+                    put("timestamp", System.currentTimeMillis())
                 }.toString()
 
                 runOnUiThread {
@@ -161,15 +177,38 @@ class MainActivity : ComponentActivity() {
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                // Auto reconnect on network recovery
+                android.util.Log.e("MainActivity_SSE", "SSE Stream Failure: ${t?.message}. Reconnecting in 3 seconds...", t)
+                eventSource.cancel()
+                this@MainActivity.eventSource = null
+                if (isSseTrackingActive) {
+                    reconnectHandler.postDelayed({
+                        if (isSseTrackingActive) {
+                            startSseStream()
+                        }
+                    }, 3000L)
+                }
+            }
+
+            override fun onClosed(eventSource: EventSource) {
+                android.util.Log.d("MainActivity_SSE", "SSE Stream closed.")
+                this@MainActivity.eventSource = null
+                if (isSseTrackingActive) {
+                    reconnectHandler.postDelayed({
+                        if (isSseTrackingActive) {
+                            startSseStream()
+                        }
+                    }, 3000L)
+                }
             }
         }
 
-        val factory = EventSources.createFactory(httpClient)
+        val factory = EventSources.createFactory(sseHttpClient)
         eventSource = factory.newEventSource(request, listener)
     }
 
     private fun stopSseStream() {
+        isSseTrackingActive = false
+        reconnectHandler.removeCallbacksAndMessages(null)
         eventSource?.cancel()
         eventSource = null
     }
