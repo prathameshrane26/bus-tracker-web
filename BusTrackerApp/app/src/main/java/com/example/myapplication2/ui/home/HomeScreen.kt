@@ -33,6 +33,8 @@ import com.example.myapplication2.ui.auth.UserRole
 import com.example.myapplication2.ui.map.BusLocation
 import com.example.myapplication2.ui.map.PassengerMapView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -303,6 +305,41 @@ fun HomeScreen(
                     withContext(Dispatchers.Main) {
                         passengerFetchError = "Could not reach backend server (${e.localizedMessage ?: "Connection failed"})"
                         isPassengerLoading = false
+                    }
+                }
+            }
+
+            // Periodic 5-second polling loop as backstop / fallback for receiving live location updates
+            while (isActive) {
+                delay(ApiConfig.LOCATION_UPDATE_INTERVAL_MS)
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val activeLocationsReq = Request.Builder().url(ApiConfig.BUS_LOCATIONS_URL).build()
+                        val resp = client.newCall(activeLocationsReq).execute()
+                        val body = resp.body?.string() ?: ""
+                        resp.close()
+                        if (resp.isSuccessful && body.isNotBlank()) {
+                            val parsedBuses = parseBusLocationsFromJson(body)
+                            if (parsedBuses.isNotEmpty()) {
+                                withContext(Dispatchers.Main) {
+                                    parsedBuses.forEach { bus ->
+                                        val index = defaultBuses.indexOfFirst { it.id.equals(bus.id, ignoreCase = true) }
+                                        if (index != -1) {
+                                            val existing = defaultBuses[index]
+                                            defaultBuses[index] = existing.copy(
+                                                latitude = bus.latitude,
+                                                longitude = bus.longitude,
+                                                updatedAt = System.currentTimeMillis() / 1000.0,
+                                                isActivelySharing = bus.isActivelySharing,
+                                                status = bus.status
+                                            )
+                                        } else {
+                                            defaultBuses.add(bus)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

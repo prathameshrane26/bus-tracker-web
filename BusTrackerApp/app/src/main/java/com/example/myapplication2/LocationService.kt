@@ -100,12 +100,13 @@ class LocationService : Service() {
     }
 
     private fun startLocationUpdates() {
-        // Broadcast location every 15 seconds as per API specification
+        // Broadcast location every 5 seconds as per API specification
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            15000L
+            ApiConfig.LOCATION_UPDATE_INTERVAL_MS
         ).apply {
-            setMinUpdateIntervalMillis(15000L)
+            setMinUpdateIntervalMillis(ApiConfig.LOCATION_FASTEST_UPDATE_INTERVAL_MS)
+            setMaxUpdateDelayMillis(0) // Ensure updates are sent immediately every 5s without OS batching delays
         }.build()
 
         locationCallback = object : LocationCallback() {

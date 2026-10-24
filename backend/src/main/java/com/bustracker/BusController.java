@@ -56,7 +56,7 @@ public class BusController {
     @Scheduled(fixedRate = 60000)
     public void cleanupInactiveBuses() {
         long now = System.currentTimeMillis();
-        long threshold = 15 * 60 * 1000; // 15 minutes
+        long threshold = 10 * 60 * 1000; // 10 minutes
 
         activeBusLocations.entrySet().removeIf(entry -> {
             boolean timedOut = (now - entry.getValue().getLastUpdated()) > threshold;
@@ -99,6 +99,9 @@ public class BusController {
         if (update == null || update.getBusId() == null || update.getBusId().trim().isEmpty()) {
             return;
         }
+
+        System.out.println("[WebSocket] Received location update for bus " + update.getBusId() 
+                + ": lat=" + update.getLatitude() + ", lon=" + update.getLongitude());
 
         activeBusLocations.put(update.getBusId(), new BusLocationWithTimestamp(update));
         if (busTrackerService != null) {

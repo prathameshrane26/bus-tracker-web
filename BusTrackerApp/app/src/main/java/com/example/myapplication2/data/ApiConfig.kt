@@ -214,6 +214,10 @@ object ApiConfig {
         return "$UNTRACK_BUS_URL?clientId=$clientId&busId=$busId"
     }
 
+    // Centralized location update interval (5 seconds) for sending and receiving location updates
+    const val LOCATION_UPDATE_INTERVAL_MS = 5000L
+    const val LOCATION_FASTEST_UPDATE_INTERVAL_MS = 5000L
+
     // STOMP Destination for location updates & stop location
     const val STOMP_LOCATION_DESTINATION = "/app/update-location"
     const val STOMP_STOP_LOCATION_DESTINATION = "/app/stop-location"

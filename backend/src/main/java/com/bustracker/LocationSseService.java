@@ -112,7 +112,7 @@ public class LocationSseService {
         public String getStatus() { return status; }
     }
 
-    @Scheduled(fixedRate = 15000)
+    @Scheduled(fixedRate = 5000)
     public void sendHeartbeat() {
         clientSessions.forEach((clientId, session) -> {
             try {
@@ -130,6 +130,7 @@ public class LocationSseService {
                     .name(eventName)
                     .reconnectTime(5000)
                     .data(data, MediaType.APPLICATION_JSON));
+            System.out.println("[SSE] Sent event '" + eventName + "' to subscriber");
         }
     }
 }

@@ -291,7 +291,7 @@ event: bus-stopped
 data: [{"busId":"GA-03-X-1001","status":"STOPPED"}]
 ```
 
-Heartbeat, sent approximately every 15 seconds:
+Heartbeat, sent approximately every 5 seconds:
 ```text
 event: heartbeat
 data: "keep-alive"
