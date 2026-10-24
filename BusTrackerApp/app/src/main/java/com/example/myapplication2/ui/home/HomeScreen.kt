@@ -105,13 +105,10 @@ private fun parseBusLocationsFromJson(jsonString: String): List<BusLocation> {
 fun HomeScreen(
     userRole: UserRole,
     userEmail: String,
-    initialBusId: String = "",
     initialBusCategory: String = "KTCL",
-    initialRouteId: String = "route-42",
     onStartDriverBroadcasting: (busId: String, startPoint: String, destination: String, routeTaken: String, busCategory: String) -> Unit,
     onStopDriverBroadcasting: (reachedDestination: Boolean) -> Unit = {},
     onStartPassengerTracking: (routeId: String) -> Unit,
-    onStopPassengerTracking: () -> Unit = {},
     onLogout: () -> Unit,
     liveBusData: String? = null,
     modifier: Modifier = Modifier
@@ -125,6 +122,20 @@ fun HomeScreen(
     var selectedDestination by remember { mutableStateOf("") }
     var selectedRoute by remember { mutableStateOf("") }
     var isBroadcasting by remember { mutableStateOf(false) }
+
+    val filteredRoutes = remember(driverOptions.routes, selectedStartPoint, selectedDestination) {
+        DriverOptionsRepository.filterRoutes(
+            allRoutes = driverOptions.routes,
+            startPoint = selectedStartPoint,
+            destination = selectedDestination
+        )
+    }
+
+    LaunchedEffect(filteredRoutes) {
+        if (selectedRoute.isNotBlank() && !filteredRoutes.contains(selectedRoute)) {
+            selectedRoute = ""
+        }
+    }
 
     var categoryExpanded by remember { mutableStateOf(false) }
     var startPointExpanded by remember { mutableStateOf(false) }
@@ -828,7 +839,7 @@ fun HomeScreen(
                                 expanded = routeExpanded && !isBroadcasting,
                                 onDismissRequest = { routeExpanded = false }
                             ) {
-                                driverOptions.routes.forEach { option ->
+                                filteredRoutes.forEach { option ->
                                     DropdownMenuItem(
                                         text = { Text(option) },
                                         onClick = {

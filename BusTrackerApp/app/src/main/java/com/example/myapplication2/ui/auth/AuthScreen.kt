@@ -284,13 +284,10 @@ fun AuthScreen(
                 HomeScreen(
                     userRole = selectedRole,
                     userEmail = loggedInUserEmail,
-                    initialBusId = busId,
                     initialBusCategory = driverBusCategory,
-                    initialRouteId = routeId,
                     onStartDriverBroadcasting = onStartDriverBroadcasting,
                     onStopDriverBroadcasting = onStopDriverBroadcasting,
                     onStartPassengerTracking = onStartPassengerTracking,
-                    onStopPassengerTracking = onStopPassengerTracking,
                     onLogout = {
                         authErrorMessage = null
                         UserSessionRepository.clearUserSession(context)
