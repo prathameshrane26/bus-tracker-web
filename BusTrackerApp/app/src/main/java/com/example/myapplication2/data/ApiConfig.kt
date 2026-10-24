@@ -131,8 +131,8 @@ object ApiConfig {
 
     // Configurable server base host.
     // Default host IP or 10.0.2.2 for Android Emulator.
-//    var SERVER_HOST: String = "10.20.64.15:8080"
-    var SERVER_HOST: String = "10.0.2.2:8080"
+    var SERVER_HOST: String = "10.20.64.15:8080"
+//    var SERVER_HOST: String = "10.0.2.2:8080"
 
     // Unique client identifier required by backend BusController endpoints
     val CLIENT_ID: String by lazy {

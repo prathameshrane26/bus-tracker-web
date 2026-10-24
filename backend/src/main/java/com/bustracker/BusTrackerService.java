@@ -10,7 +10,15 @@ public class BusTrackerService {
     private final Set<String> activeBuses = ConcurrentHashMap.newKeySet();
 
     public void registerActiveBus(String busId) {
-        activeBuses.add(busId);
+        if (busId != null) {
+            activeBuses.add(busId);
+        }
+    }
+
+    public void unregisterActiveBus(String busId) {
+        if (busId != null) {
+            activeBuses.remove(busId);
+        }
     }
 
     public Set<String> getActiveBuses() {

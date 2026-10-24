@@ -63,6 +63,9 @@ public class BusController {
             if (timedOut) {
                 String busId = entry.getKey();
                 System.out.println("[BusController] Timeout: Removing bus " + busId + " due to inactivity.");
+                if (busTrackerService != null) {
+                    busTrackerService.unregisterActiveBus(busId);
+                }
                 
                 // Notify clients
                 Map<String, String> payload = Map.of("busId", busId, "status", "STOPPED");
@@ -114,15 +117,28 @@ public class BusController {
         messagingTemplate.convertAndSend("/topic/active-buses", getActiveBusIds());
     }
 
-    @PostMapping("/buses/stop-sharing")
-    public ResponseEntity<Map<String, String>> stopLocationSharing(@RequestBody Map<String, String> request) {
-        String busId = request.get("busId");
+    @MessageMapping("/stop-location")
+    public void handleStopLocation(Map<String, Object> payload) {
+        if (payload == null) {
+            return;
+        }
+        Object busIdObj = payload.get("busId");
+        if (busIdObj instanceof String busId && !busId.trim().isEmpty()) {
+            System.out.println("[WebSocket] Received stop-location for bus " + busId);
+            stopLocationSharingForBus(busId.trim());
+        }
+    }
+
+    public boolean stopLocationSharingForBus(String busId) {
         if (busId == null || busId.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Bus ID is required."));
+            return false;
         }
 
         if (activeBusLocations.containsKey(busId)) {
             activeBusLocations.remove(busId);
+            if (busTrackerService != null) {
+                busTrackerService.unregisterActiveBus(busId);
+            }
             
             // Notify clients that the bus is no longer active
             Map<String, String> payload = Map.of("busId", busId, "status", "STOPPED");
@@ -155,6 +171,20 @@ public class BusController {
                 messagingTemplate.convertAndSend("/topic/bus/" + busId, staticLoc);
             }
             
+            return true;
+        }
+        return false;
+    }
+
+    @PostMapping("/buses/stop-sharing")
+    public ResponseEntity<Map<String, String>> stopLocationSharing(@RequestBody Map<String, String> request) {
+        String busId = request.get("busId");
+        if (busId == null || busId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("status", "ERROR", "message", "Bus ID is required."));
+        }
+
+        boolean stopped = stopLocationSharingForBus(busId.trim());
+        if (stopped) {
             return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Location sharing stopped for bus: " + busId));
         }
 

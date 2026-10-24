@@ -389,9 +389,19 @@ Fields:
 
 There is no REST response to a STOMP send. A null message or blank `busId` is ignored. A valid message replaces the bus's current in-memory location and triggers the SSE/topic notifications below.
 
-### 4.3 Stop location sharing: `POST /api/buses/stop-sharing`
+### 4.3 Stop location sharing
 
-Drivers use this endpoint to explicitly stop sharing their location (e.g., end of shift or reached destination).
+Drivers can explicitly stop sharing their location (e.g., end of shift or reached destination) via WebSocket or HTTP POST.
+
+#### Via STOMP:
+Send a STOMP `SEND` frame to `/app/stop-location` with JSON payload:
+```json
+{
+  "busId": "GA-03-X-1001"
+}
+```
+
+#### Via HTTP REST: `POST /api/buses/stop-sharing`
 
 Request body:
 

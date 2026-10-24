@@ -100,8 +100,10 @@ fun PassengerMapView(
                 buses.forEach { bus ->
                     val isTracked = trackedBusIds.contains(bus.id)
                     val isSelected = (bus.id == selectedBusId)
+                    val isBusStopped = !bus.isActivelySharing || bus.status.equals("Stopped", ignoreCase = true)
                     val newGeoPoint = GeoPoint(bus.latitude, bus.longitude)
-                    val snippetText = "Route: ${bus.routeName}\nDestination: ${bus.destination}${if (isTracked) "\n[LIVE TRACKING ACTIVE]" else ""}"
+                    val statusText = if (isBusStopped) "TRIP ENDED" else "IN TRANSIT"
+                    val snippetText = "Route: ${bus.routeName}\nDestination: ${bus.destination}\nStatus: $statusText${if (isTracked) "\n[LIVE TRACKING ACTIVE]" else ""}"
 
                     val existingMarker = currentMarkers.find { (it.id ?: it.title) == bus.id }
 
@@ -223,6 +225,29 @@ fun PassengerMapView(
         ) {
             selectedBus?.let { bus ->
                 val isTracked = trackedBusIds.contains(bus.id)
+                val isBusStopped = !bus.isActivelySharing || bus.status.equals("Stopped", ignoreCase = true)
+
+                val badgeText = when {
+                    isTracked -> "TRACKING LIVE"
+                    isBusStopped -> "TRIP ENDED"
+                    else -> "IN TRANSIT"
+                }
+                val badgeBg = when {
+                    isTracked -> Color(0xFFE8F5E9)
+                    isBusStopped -> Color(0xFFFFEBEE)
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                val badgeTextColor = when {
+                    isTracked -> Color(0xFF1B5E20)
+                    isBusStopped -> Color(0xFFC62828)
+                    else -> Color.DarkGray
+                }
+                val dotColor = when {
+                    isTracked -> Color(0xFF2E7D32)
+                    isBusStopped -> Color(0xFFD32F2F)
+                    else -> Color.Gray
+                }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -273,7 +298,7 @@ fun PassengerMapView(
 
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isTracked) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
+                                color = badgeBg
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
@@ -283,14 +308,14 @@ fun PassengerMapView(
                                         modifier = Modifier
                                             .size(8.dp)
                                             .clip(CircleShape)
-                                            .background(if (isTracked) Color(0xFF2E7D32) else Color.Gray)
+                                            .background(dotColor)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isTracked) "TRACKING" else "STATIC",
+                                        text = badgeText,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isTracked) Color(0xFF1B5E20) else Color.DarkGray
+                                        color = badgeTextColor
                                     )
                                 }
                             }
@@ -300,6 +325,22 @@ fun PassengerMapView(
 
                         // Bus Route & Destination Details
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = if (isBusStopped) Icons.Default.Cancel else Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isBusStopped) Color(0xFFD32F2F) else Color(0xFF2E7D32)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Status: ${if (isBusStopped) "Trip Ended / Stopped" else bus.status}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isBusStopped) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.TripOrigin,
@@ -366,10 +407,18 @@ fun PassengerMapView(
                         // Toggle Track Button
                         Button(
                             onClick = { onToggleTrackBus(bus.id) },
+                            enabled = !isBusStopped || isTracked,
                             colors = if (isTracked) {
                                 ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF2E7D32),
                                     contentColor = Color.White
+                                )
+                            } else if (isBusStopped) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else {
                                 ButtonDefaults.buttonColors(
@@ -381,12 +430,20 @@ fun PassengerMapView(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
-                                imageVector = if (isTracked) Icons.Default.Check else Icons.Default.Radio,
+                                imageVector = when {
+                                    isTracked -> Icons.Default.Check
+                                    isBusStopped -> Icons.Default.Block
+                                    else -> Icons.Default.Radio
+                                },
                                 contentDescription = null
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isTracked) "Tracking Live (Tap to Stop)" else "Start Live Tracking",
+                                text = when {
+                                    isTracked -> "Tracking Live (Tap to Stop)"
+                                    isBusStopped -> "Trip Ended (Live Tracking Stopped)"
+                                    else -> "Start Live Tracking"
+                                },
                                 fontWeight = FontWeight.Bold
                             )
                         }

@@ -288,6 +288,7 @@ fun AuthScreen(
                     onStartDriverBroadcasting = onStartDriverBroadcasting,
                     onStopDriverBroadcasting = onStopDriverBroadcasting,
                     onStartPassengerTracking = onStartPassengerTracking,
+                    onStopPassengerTracking = onStopPassengerTracking,
                     onLogout = {
                         authErrorMessage = null
                         UserSessionRepository.clearUserSession(context)

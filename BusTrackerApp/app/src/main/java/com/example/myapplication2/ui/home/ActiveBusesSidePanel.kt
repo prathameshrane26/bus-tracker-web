@@ -228,6 +228,7 @@ fun ActiveBusesSidePanel(
                         val isSelected = bus.id == selectedBusId
                         val isTracked = trackedBusIds.contains(bus.id)
                         val isKtcl = bus.busCategory.equals("KTCL", ignoreCase = true)
+                        val isBusStopped = !bus.isActivelySharing || bus.status.equals("Stopped", ignoreCase = true)
 
                         Card(
                             modifier = Modifier
@@ -312,7 +313,7 @@ fun ActiveBusesSidePanel(
                                         }
                                     }
 
-                                    if (bus.isActivelySharing) {
+                                    if (bus.isActivelySharing && !isBusStopped) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = Color(0xFFE8F5E9)
@@ -336,6 +337,30 @@ fun ActiveBusesSidePanel(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFFFFEBEE)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFFD32F2F))
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Ended",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Color(0xFFC62828),
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 
@@ -355,10 +380,18 @@ fun ActiveBusesSidePanel(
                                     // Multi-bus Track Toggle Button
                                     Button(
                                         onClick = { onToggleTrackBus(bus.id) },
+                                        enabled = !isBusStopped || isTracked,
                                         colors = if (isTracked) {
                                             ButtonDefaults.buttonColors(
                                                 containerColor = Color(0xFF2E7D32),
                                                 contentColor = Color.White
+                                            )
+                                        } else if (isBusStopped) {
+                                            ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         } else {
                                             ButtonDefaults.buttonColors(
@@ -370,13 +403,21 @@ fun ActiveBusesSidePanel(
                                         modifier = Modifier.height(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (isTracked) Icons.Default.Check else Icons.Default.Radio,
+                                            imageVector = when {
+                                                isTracked -> Icons.Default.Check
+                                                isBusStopped -> Icons.Default.Block
+                                                else -> Icons.Default.Radio
+                                            },
                                             contentDescription = null,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = if (isTracked) "Tracking" else "Track Live",
+                                            text = when {
+                                                isTracked -> "Tracking"
+                                                isBusStopped -> "Ended"
+                                                else -> "Track Live"
+                                            },
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold
                                         )
