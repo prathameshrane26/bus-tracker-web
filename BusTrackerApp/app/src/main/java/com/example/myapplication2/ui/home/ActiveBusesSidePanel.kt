@@ -93,7 +93,7 @@ fun ActiveBusesSidePanel(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Goa Bus Network",
+                            text = "Bus tracking network",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -212,7 +212,7 @@ fun ActiveBusesSidePanel(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "No active buses found",
+                                text = "No live buses found",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

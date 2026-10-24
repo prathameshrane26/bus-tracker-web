@@ -390,7 +390,7 @@ fun HomeScreen(
                         title = {
                             Column {
                                 Text(
-                                    text = "OpenStreetMap • Goa Live",
+                                    text = "BusTracker",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -515,7 +515,7 @@ fun HomeScreen(
                                     strokeWidth = 2.dp
                                 )
                                 Text(
-                                    text = "Fetching live buses from backend...",
+                                    text = "Fetching live buses from server...",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -548,7 +548,7 @@ fun HomeScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "Backend Server Unreachable",
+                                            text = "Server Unreachable",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -653,13 +653,13 @@ fun HomeScreen(
 
                         Column {
                             Text(
-                                text = "Role: Driver",
+                                text = "Logged in as driver",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Sharing location via WebSocket (STOMP)",
+                                text = "Share your live location to passengers",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
@@ -707,7 +707,7 @@ fun HomeScreen(
                             onExpandedChange = { if (!isBroadcasting) categoryExpanded = !categoryExpanded }
                         ) {
                             OutlinedTextField(
-                                value = if (selectedBusCategory.equals("Private", ignoreCase = true)) "Private bus" else "KTCL bus",
+                                value = if (selectedBusCategory.equals("Private", ignoreCase = true)) "Private" else "KTCL",
                                 onValueChange = {},
                                 readOnly = true,
                                 enabled = !isBroadcasting,
@@ -723,7 +723,7 @@ fun HomeScreen(
                                 expanded = categoryExpanded && !isBroadcasting,
                                 onDismissRequest = { categoryExpanded = false }
                             ) {
-                                listOf("KTCL bus", "Private bus").forEach { cat ->
+                                listOf("KTCL", "Private").forEach { cat ->
                                     DropdownMenuItem(
                                         text = { Text(cat) },
                                         onClick = {
@@ -745,7 +745,7 @@ fun HomeScreen(
                                 onValueChange = {},
                                 readOnly = true,
                                 enabled = !isBroadcasting,
-                                label = { Text("Bus Start Point") },
+                                label = { Text("Start Point") },
                                 placeholder = { Text("Select Start Point") },
                                 leadingIcon = { Icon(Icons.Default.TripOrigin, contentDescription = null) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = startPointExpanded) },
@@ -815,8 +815,8 @@ fun HomeScreen(
                                 onValueChange = {},
                                 readOnly = true,
                                 enabled = !isBroadcasting,
-                                label = { Text("Route Taken") },
-                                placeholder = { Text("Select Route Taken") },
+                                label = { Text("Via") },
+                                placeholder = { Text("Select Route") },
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = routeExpanded) },
                                 modifier = Modifier
@@ -842,7 +842,7 @@ fun HomeScreen(
 
                         if (!isFormValid && !isBroadcasting) {
                             Text(
-                                text = "⚠️ Please enter Bus ID and select Start Point, Destination, and Route Taken to enable location broadcasting.",
+                                text = "⚠️ Please fill in the details to start sharing location.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -886,7 +886,7 @@ fun HomeScreen(
                                 onClick = {
                                     isBroadcasting = false
                                     onStopDriverBroadcasting(true)
-                                    Toast.makeText(context, "Trip completed: Reached destination. Location sharing stopped.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Location sharing stopped. Trip marked as completed", Toast.LENGTH_LONG).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF2E7D32),
@@ -911,7 +911,7 @@ fun HomeScreen(
                                 onClick = {
                                     isBroadcasting = false
                                     onStopDriverBroadcasting(false)
-                                    Toast.makeText(context, "Location sharing stopped & WebSocket closed.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Location sharing stopped", Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error

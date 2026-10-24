@@ -58,7 +58,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Welcome Back",
+            text = "BusTracker App",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -110,7 +110,7 @@ fun LoginScreen(
             OutlinedTextField(
                 value = field2,
                 onValueChange = { field2 = it },
-                label = { Text("Phone Number (e.g. +919876543210)") },
+                label = { Text("Phone Number)") },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
@@ -244,7 +244,7 @@ fun LoginScreen(
                 )
             } else {
                 Text(
-                    text = if (selectedRole == UserRole.DRIVER) "Verify & Login Driver" else "Continue as Passenger",
+                    text = if (selectedRole == UserRole.DRIVER) "Login as Driver" else "Login as Passenger",
                     style = MaterialTheme.typography.titleMedium
                 )
             }
