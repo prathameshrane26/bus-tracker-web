@@ -1,18 +1,11 @@
 package com.example.myapplication2.ui.auth
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.AltRoute
-import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -32,18 +25,16 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(
-    selectedRole: UserRole,
-    onRoleSelected: (UserRole) -> Unit,
-    onSignupSubmitted: (role: UserRole, name: String, email: String, busId: String, routeId: String) -> Unit,
+    onSignupSubmitted: (name: String, email: String, password: String) -> Unit,
     onNavigateToLogin: () -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var busId by remember { mutableStateOf("") }
-    var routeId by remember { mutableStateOf("") }
 
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
@@ -54,7 +45,7 @@ fun SignupScreen(
             email.isNotBlank() &&
             password.isNotBlank() &&
             password == confirmPassword &&
-            (selectedRole == UserRole.PASSENGER || (busId.isNotBlank() && routeId.isNotBlank()))
+            !isLoading
 
     Column(
         modifier = modifier
@@ -67,7 +58,7 @@ fun SignupScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Icon(
-            imageVector = if (selectedRole == UserRole.DRIVER) Icons.Default.DirectionsBus else Icons.Default.Person,
+            imageVector = Icons.Default.Person,
             contentDescription = null,
             modifier = Modifier.size(56.dp),
             tint = MaterialTheme.colorScheme.primary
@@ -82,28 +73,10 @@ fun SignupScreen(
         )
 
         Text(
-            text = "Register as ${selectedRole.label}",
+            text = "Register as Passenger",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Role Selector Toggle
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            UserRole.entries.forEachIndexed { index, role ->
-                SegmentedButton(
-                    selected = selectedRole == role,
-                    onClick = { onRoleSelected(role) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = UserRole.entries.size),
-                    icon = {}
-                ) {
-                    Text(role.label)
-                }
-            }
-        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -123,7 +96,7 @@ fun SignupScreen(
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email or Phone") },
+            label = { Text("Email or Username") },
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -133,41 +106,6 @@ fun SignupScreen(
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
-
-        // Driver-specific fields
-        AnimatedVisibility(
-            visible = selectedRole == UserRole.DRIVER,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = busId,
-                    onValueChange = { busId = it },
-                    label = { Text("Vehicle / Bus ID (e.g. Bus-101)") },
-                    leadingIcon = { Icon(Icons.Default.DirectionsBus, contentDescription = null) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = routeId,
-                    onValueChange = { routeId = it },
-                    label = { Text("Assigned Route ID (e.g. route-42)") },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.AltRoute, contentDescription = null) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -225,12 +163,30 @@ fun SignupScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
+        if (!errorMessage.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
                 if (isFormValid) {
-                    onSignupSubmitted(selectedRole, fullName, email, busId, routeId)
+                    onSignupSubmitted(fullName, email, password)
                 }
             },
             modifier = Modifier
@@ -239,7 +195,15 @@ fun SignupScreen(
             shape = RoundedCornerShape(12.dp),
             enabled = isFormValid
         ) {
-            Text("Register as ${selectedRole.label}", style = MaterialTheme.typography.titleMedium)
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Register as Passenger", style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

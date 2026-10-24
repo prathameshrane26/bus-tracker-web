@@ -11,7 +11,7 @@ This file is the complete integration contract for the frontend AI. Implement on
 - Authentication is cookie-based HTTP session authentication, not JWT. After login, retain the `JSESSIONID` cookie and send it on later requests. For browser `fetch`, use `credentials: "include"` on login, logout, and any request that must carry the session cookie. Native clients must use a cookie jar.
 - CORS currently allows all origins.
 - Passwords are currently stored as plain text in the local file-based H2 database. Do not display or log passwords.
-- **Driver login and whitelist:** drivers may authenticate with `busId` (or `busNumber`) and `phoneNumber`, or username and password, provided their phone number exists in the admin driver whitelist.
+- **Driver login and whitelist:** drivers authenticate using their `phoneNumber`, `busCategory`, and `otp`, provided their phone number exists in the admin driver whitelist. Drivers first request an OTP via `POST /api/auth/request-otp` and then verify & log in via `POST /api/auth/login` with OTP (currently `1234` for testing).
 - Live bus locations are held in memory and are lost when the server restarts. Accounts and schedules persist in H2.
 - Error responses are JSON when produced by an endpoint. Unexpected framework errors may use Spring's default error shape.
 
@@ -86,7 +86,40 @@ Errors:
 - `400 Bad Request`: missing/blank passenger password, missing username/busId, missing driver phoneNumber, or invalid role.
 - `409 Conflict`: username/bus ID already exists.
 
-### 2.2 Log in: `POST /api/auth/login`
+### 2.2 Request driver OTP: `POST /api/auth/request-otp`
+
+Driver requests an OTP for authentication by providing their whitelisted phone number.
+
+Request:
+
+```json
+{
+  "phoneNumber": "+919876543210"
+}
+```
+
+Request fields:
+
+| Field | Type | Required | Rules |
+|---|---|---:|---|
+| `phoneNumber` | string | yes | Must be a whitelisted driver phone number |
+
+Success: `200 OK`
+
+```json
+{
+  "status": "SUCCESS",
+  "message": "OTP sent successfully",
+  "phoneNumber": "+919876543210"
+}
+```
+
+Errors:
+
+- `400 Bad Request`: `phoneNumber` is missing or empty.
+- `403 Forbidden`: `phoneNumber` is not whitelisted by the admin.
+
+### 2.3 Log in: `POST /api/auth/login`
 
 Creates an HTTP session and returns a `Set-Cookie: JSESSIONID=...` response header. The frontend must retain the cookie.
 
@@ -100,31 +133,25 @@ Passenger request:
 }
 ```
 
-Driver password login request (legacy-compatible):
+Driver login request:
 
 ```json
 {
-  "busId": "GA-03-X-1001",
-  "password": "123456",
-  "role": "DRIVER"
-}
-```
-
-Temporary driver phone login request:
-
-```json
-{
-  "busId": "GA-03-X-1001",
   "phoneNumber": "+919876543210",
-  "role": "DRIVER"
+  "busCategory": "KTCL",
+  "otp": "1234"
 }
 ```
 
-For temporary phone login, `busId` (or `busNumber`) and `phoneNumber` are required; do not send a password. The backend accepts any nonblank values and creates a driver session without checking the bus number or phone number against the database. No OTP or other phone verification is performed. `role` is optional, but should be `DRIVER`. This behavior is for testing only.
+For driver login, `phoneNumber`, `busCategory`, and `otp` are used. For testing purposes, OTP is verified against `1234`. The phone number must be present in the admin driver whitelist.
 
-The backend also accepts `phone` as an alias for `phoneNumber`.
+Request fields (Driver Login):
 
-For password login, `username` or `busId` and `password` are required. The login identifier may also be sent as `busNumber`; `username` takes precedence, then `busId`, then `busNumber`.
+| Field | Type | Required | Rules |
+|---|---|---:|---|
+| `phoneNumber` | string | yes | Whitelisted driver phone number |
+| `busCategory` | string | no | `KTCL` or `Private` |
+| `otp` | string | yes | Submitted OTP (for testing, must be `1234`) |
 
 Success: `200 OK` for a passenger:
 
@@ -142,23 +169,23 @@ Success: `200 OK` for a driver:
 ```json
 {
   "status": "SUCCESS",
-  "username": "GA-03-X-1001",
+  "username": "+919876543210",
   "role": "DRIVER",
-  "displayName": "Driver Name",
-  "busId": "GA-03-X-1001",
-  "driverName": "Driver Name",
+  "displayName": "Driver",
+  "busId": "+919876543210",
+  "driverName": "Driver",
+  "phoneNumber": "+919876543210",
   "busCategory": "KTCL"
 }
 ```
 
 Errors:
 
-- `400 Bad Request`: password or username/busId is missing.
-- `401 Unauthorized`: credentials are invalid or the requested role does not match.
+- `400 Bad Request`: missing required fields (e.g. `phoneNumber` or `otp` for driver; `username` or `password` for passenger).
+- `401 Unauthorized`: invalid passenger credentials or invalid driver OTP.
+- `403 Forbidden`: driver phone number is not whitelisted.
 
-Driver accounts created by the admin schedule endpoints remain valid through password login. They can use phone login only if a phone number has been stored for that driver.
-
-### 2.3 Log out: `POST /api/auth/logout`
+### 2.4 Log out: `POST /api/auth/logout`
 
 Invalidates the current HTTP session. Send the session cookie with the request.
 
@@ -579,13 +606,14 @@ interface PassengerBusStatus {
 
 ### Driver
 
-1. Sign up with role `DRIVER` and provide `busId` plus `phoneNumber`, or use credentials created by the admin schedule flow.
-2. Temporarily log in with `POST /api/auth/login` using `busId` and `phoneNumber` without OTP verification. Password login remains supported.
-3. Connect to `/ws` using STOMP/SockJS.
-4. Publish the logged-in driver's location to `/app/update-location` at the desired interval.
-5. Call `POST /api/buses/stop-sharing` when the trip ends (e.g., reached destination) or when the driver manually stops sharing.
-6. Disconnect the WebSocket when the trip ends or the driver signs out.
-7. Call `/api/auth/logout` when the user signs out.
+1. Sign up with role `DRIVER` and provide `busId` plus `phoneNumber`, or use a whitelisted phone number.
+2. Request an OTP using `POST /api/auth/request-otp` with `phoneNumber`.
+3. Log in with `POST /api/auth/login` using `phoneNumber`, `busCategory`, and `otp` (`1234` for testing).
+4. Connect to `/ws` using STOMP/SockJS.
+5. Publish the logged-in driver's location to `/app/update-location` at the desired interval.
+6. Call `POST /api/buses/stop-sharing` when the trip ends (e.g., reached destination) or when the driver manually stops sharing.
+7. Disconnect the WebSocket when the trip ends or the driver signs out.
+8. Call `/api/auth/logout` when the user signs out.
 
 ### Admin
 

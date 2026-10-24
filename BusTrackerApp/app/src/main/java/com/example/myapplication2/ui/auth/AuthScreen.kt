@@ -5,7 +5,10 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.example.myapplication2.data.ApiConfig
+import com.example.myapplication2.data.UserSession
+import com.example.myapplication2.data.UserSessionRepository
 import com.example.myapplication2.ui.home.HomeScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,12 +33,20 @@ fun AuthScreen(
     liveBusData: String? = null,
     modifier: Modifier = Modifier
 ) {
-    var viewState by remember { mutableStateOf(AuthViewState.LOGIN) }
-    var selectedRole by remember { mutableStateOf(UserRole.PASSENGER) }
-    var loggedInUserEmail by remember { mutableStateOf("") }
-    var busId by remember { mutableStateOf("") }
-    var driverBusCategory by remember { mutableStateOf("KTCL") }
-    var routeId by remember { mutableStateOf("route-42") }
+    val context = LocalContext.current
+    val initialSession = remember {
+        ApiConfig.init(context)
+        UserSessionRepository.getUserSession(context)
+    }
+
+    var viewState by remember {
+        mutableStateOf(if (initialSession.isLoggedIn) AuthViewState.LOGGED_IN else AuthViewState.LOGIN)
+    }
+    var selectedRole by remember { mutableStateOf(initialSession.role) }
+    var loggedInUserEmail by remember { mutableStateOf(initialSession.userEmail) }
+    var busId by remember { mutableStateOf(initialSession.busId) }
+    var driverBusCategory by remember { mutableStateOf(initialSession.driverBusCategory) }
+    var routeId by remember { mutableStateOf(initialSession.routeId) }
 
     var isAuthLoading by remember { mutableStateOf(false) }
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -58,87 +69,210 @@ fun AuthScreen(
                     },
                     isLoading = isAuthLoading,
                     errorMessage = authErrorMessage,
+                    onRequestOtp = { phoneNumber, callback ->
+                        coroutineScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val jsonPayload = JSONObject().apply {
+                                    put("phoneNumber", phoneNumber.trim())
+                                }.toString()
+
+                                val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                                val request = Request.Builder()
+                                    .url(ApiConfig.REQUEST_OTP_URL)
+                                    .post(requestBody)
+                                    .build()
+
+                                val response = httpClient.newCall(request).execute()
+                                val responseStr = response.body?.string() ?: ""
+                                val isSuccess = response.isSuccessful
+                                response.close()
+
+                                val jsonRes = runCatching { JSONObject(responseStr) }.getOrNull()
+                                val msg = jsonRes?.optString("message")
+
+                                withContext(Dispatchers.Main) {
+                                    if (isSuccess) {
+                                        callback(true, msg ?: "OTP sent successfully")
+                                    } else {
+                                        callback(false, msg ?: "Failed to request OTP ($responseStr)")
+                                    }
+                                }
+                            }.onFailure { e ->
+                                withContext(Dispatchers.Main) {
+                                    callback(false, "Connection error: ${e.localizedMessage ?: "Unable to reach server"}")
+                                }
+                            }
+                        }
+                    },
                     onLoginSubmitted = { role, f1, f2, category ->
                         selectedRole = role
                         authErrorMessage = null
                         driverBusCategory = category
+                        isAuthLoading = true
 
-                        if (role == UserRole.DRIVER) {
-                            // Backend verification call for Driver
-                            isAuthLoading = true
-                            coroutineScope.launch(Dispatchers.IO) {
-                                runCatching {
-                                    val jsonPayload = JSONObject().apply {
-                                        put("busId", f1.trim())
-                                        put("phoneNumber", f2.trim())
-                                        put("role", "DRIVER")
+                        coroutineScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val jsonPayload = if (role == UserRole.DRIVER) {
+                                    JSONObject().apply {
+                                        put("phoneNumber", f1.trim())
+                                        put("busCategory", category)
+                                        put("otp", f2.trim())
                                     }.toString()
+                                } else {
+                                    JSONObject().apply {
+                                        put("username", f1.trim())
+                                        put("password", f2.trim())
+                                        put("role", "PASSENGER")
+                                    }.toString()
+                                }
 
-                                    val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                                    val request = Request.Builder()
-                                        .url(ApiConfig.LOGIN_URL)
-                                        .post(requestBody)
-                                        .build()
+                                val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                                val request = Request.Builder()
+                                    .url(ApiConfig.LOGIN_URL)
+                                    .post(requestBody)
+                                    .build()
 
-                                    val response = httpClient.newCall(request).execute()
-                                    val responseStr = response.body?.string() ?: ""
-                                    response.close()
+                                val response = httpClient.newCall(request).execute()
+                                val responseStr = response.body?.string() ?: ""
+                                val isSuccess = response.isSuccessful
+                                response.close()
 
-                                    if (response.isSuccessful) {
-                                        val jsonRes = JSONObject(responseStr)
-                                        val returnedBusId = jsonRes.optString("busId", f1.trim())
-                                        val driverName = jsonRes.optString("driverName", "Driver ($returnedBusId)")
-                                        val returnedCategory = jsonRes.optString("busCategory", category)
+                                val jsonRes = runCatching { JSONObject(responseStr) }.getOrNull()
 
-                                        withContext(Dispatchers.Main) {
+                                if (isSuccess) {
+                                    withContext(Dispatchers.Main) {
+                                        val session: UserSession
+                                        if (role == UserRole.DRIVER) {
+                                            val returnedBusId = jsonRes?.optString("busId")?.ifBlank { null }
+                                                ?: jsonRes?.optString("username")?.ifBlank { null }
+                                                ?: f1.trim()
+                                            val driverName = jsonRes?.optString("driverName")?.ifBlank { null }
+                                                ?: jsonRes?.optString("displayName")?.ifBlank { null }
+                                                ?: "Driver"
+                                            val returnedCategory = jsonRes?.optString("busCategory")?.ifBlank { null }
+                                                ?: category
+
                                             busId = returnedBusId
                                             driverBusCategory = returnedCategory
                                             loggedInUserEmail = driverName
-                                            isAuthLoading = false
-                                            viewState = AuthViewState.LOGGED_IN
+
+                                            session = UserSession(
+                                                isLoggedIn = true,
+                                                role = UserRole.DRIVER,
+                                                userEmail = driverName,
+                                                busId = returnedBusId,
+                                                driverBusCategory = returnedCategory,
+                                                routeId = routeId
+                                            )
+                                        } else {
+                                            val passengerName = jsonRes?.optString("displayName")?.ifBlank { null }
+                                                ?: jsonRes?.optString("username")?.ifBlank { null }
+                                                ?: f1.trim()
+                                            loggedInUserEmail = passengerName
+
+                                            session = UserSession(
+                                                isLoggedIn = true,
+                                                role = UserRole.PASSENGER,
+                                                userEmail = passengerName,
+                                                busId = "",
+                                                driverBusCategory = "KTCL",
+                                                routeId = routeId
+                                            )
                                         }
-                                    } else {
-                                        var errMsg = "Invalid credentials ($responseStr)"
-                                        if (responseStr.isNotBlank()) {
-                                            runCatching {
-                                                val jsonErr = JSONObject(responseStr)
-                                                errMsg = jsonErr.optString("message", errMsg)
-                                            }
-                                        }
-                                        withContext(Dispatchers.Main) {
-                                            isAuthLoading = false
-                                            authErrorMessage = errMsg
-                                        }
+                                        UserSessionRepository.saveUserSession(context, session)
+                                        isAuthLoading = false
+                                        viewState = AuthViewState.LOGGED_IN
                                     }
-                                }.onFailure { e ->
+                                } else {
+                                    val errMsg = jsonRes?.optString("message")?.ifBlank { null }
+                                        ?: "Invalid credentials"
                                     withContext(Dispatchers.Main) {
                                         isAuthLoading = false
-                                        authErrorMessage = "Connection error: ${e.localizedMessage ?: "Unable to reach server"}"
+                                        authErrorMessage = errMsg
                                     }
                                 }
+                            }.onFailure { e ->
+                                withContext(Dispatchers.Main) {
+                                    isAuthLoading = false
+                                    authErrorMessage = "Connection error: ${e.localizedMessage ?: "Unable to reach server"}"
+                                }
                             }
-                        } else {
-                            // Passenger Mode
-                            loggedInUserEmail = if (f1.isNotBlank()) f1 else "passenger@goa.bus"
-                            viewState = AuthViewState.LOGGED_IN
                         }
                     },
                     onNavigateToSignup = {
                         authErrorMessage = null
+                        selectedRole = UserRole.PASSENGER
                         viewState = AuthViewState.SIGNUP
                     }
                 )
             }
             AuthViewState.SIGNUP -> {
                 SignupScreen(
-                    selectedRole = selectedRole,
-                    onRoleSelected = { selectedRole = it },
-                    onSignupSubmitted = { role, name, email, bId, rId ->
-                        selectedRole = role
-                        loggedInUserEmail = if (name.isNotBlank()) name else email
-                        if (bId.isNotBlank()) busId = bId
-                        if (rId.isNotBlank()) routeId = rId
-                        viewState = AuthViewState.LOGGED_IN
+                    isLoading = isAuthLoading,
+                    errorMessage = authErrorMessage,
+                    onSignupSubmitted = { fullName, email, password ->
+                        authErrorMessage = null
+                        isAuthLoading = true
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val jsonPayload = JSONObject().apply {
+                                    put("username", email.trim())
+                                    put("password", password.trim())
+                                    put("role", "PASSENGER")
+                                    put("displayName", fullName.trim())
+                                }.toString()
+
+                                val requestBody = jsonPayload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                                val request = Request.Builder()
+                                    .url(ApiConfig.SIGNUP_URL)
+                                    .post(requestBody)
+                                    .build()
+
+                                val response = httpClient.newCall(request).execute()
+                                val responseStr = response.body?.string() ?: ""
+                                val isSuccess = response.isSuccessful
+                                response.close()
+
+                                val jsonRes = runCatching { JSONObject(responseStr) }.getOrNull()
+
+                                if (isSuccess) {
+                                    val returnedName = jsonRes?.optString("displayName")?.ifBlank { null }
+                                        ?: jsonRes?.optString("username")?.ifBlank { null }
+                                        ?: fullName.trim()
+
+                                    withContext(Dispatchers.Main) {
+                                        selectedRole = UserRole.PASSENGER
+                                        loggedInUserEmail = returnedName
+
+                                        val session = UserSession(
+                                            isLoggedIn = true,
+                                            role = UserRole.PASSENGER,
+                                            userEmail = returnedName,
+                                            busId = "",
+                                            driverBusCategory = "KTCL",
+                                            routeId = routeId
+                                        )
+                                        UserSessionRepository.saveUserSession(context, session)
+
+                                        isAuthLoading = false
+                                        viewState = AuthViewState.LOGGED_IN
+                                    }
+                                } else {
+                                    val errMsg = jsonRes?.optString("message")?.ifBlank { null }
+                                        ?: "Signup failed ($responseStr)"
+                                    withContext(Dispatchers.Main) {
+                                        isAuthLoading = false
+                                        authErrorMessage = errMsg
+                                    }
+                                }
+                            }.onFailure { e ->
+                                withContext(Dispatchers.Main) {
+                                    isAuthLoading = false
+                                    authErrorMessage = "Connection error: ${e.localizedMessage ?: "Unable to reach server"}"
+                                }
+                            }
+                        }
                     },
                     onNavigateToLogin = {
                         authErrorMessage = null
@@ -159,6 +293,21 @@ fun AuthScreen(
                     onStopPassengerTracking = onStopPassengerTracking,
                     onLogout = {
                         authErrorMessage = null
+                        UserSessionRepository.clearUserSession(context)
+                        ApiConfig.clearCookies()
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            // Call backend logout endpoint
+                            runCatching {
+                                val request = Request.Builder()
+                                    .url(ApiConfig.LOGOUT_URL)
+                                    .post("{}".toRequestBody("application/json".toMediaType()))
+                                    .build()
+                                val response = httpClient.newCall(request).execute()
+                                response.close()
+                            }
+                        }
+
                         if (selectedRole == UserRole.DRIVER) {
                             // 1. Stop location service / driver broadcasting
                             onStopDriverBroadcasting(false)

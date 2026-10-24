@@ -119,7 +119,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val driverOptions = remember(context) { DriverOptionsRepository.loadOptions(context) }
 
-    var selectedBusId by remember { mutableStateOf(initialBusId) }
+    var selectedBusId by remember { mutableStateOf("") }
     var selectedBusCategory by remember { mutableStateOf(if (initialBusCategory.contains("Private", ignoreCase = true)) "Private" else "KTCL") }
     var selectedStartPoint by remember { mutableStateOf("") }
     var selectedDestination by remember { mutableStateOf("") }

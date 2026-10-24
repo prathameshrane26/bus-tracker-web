@@ -25,6 +25,35 @@ public class AuthController {
         this.driverWhitelistRepository = driverWhitelistRepository;
     }
 
+    public void generateOtp(String phoneNumber) {
+        // TODO: implement OTP generation and sending logic later
+    }
+
+    @PostMapping({"/request-otp", "/send-otp", "/driver/request-otp"})
+    public ResponseEntity<Map<String, String>> requestOtp(@RequestBody(required = false) Map<String, String> request) {
+        if (request == null) {
+            return error(HttpStatus.BAD_REQUEST, "Phone number is required");
+        }
+        String phoneNumber = trim(request.get("phoneNumber"));
+        if (phoneNumber == null) {
+            phoneNumber = trim(request.get("phone"));
+        }
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            return error(HttpStatus.BAD_REQUEST, "Phone number is required");
+        }
+        if (!driverWhitelistRepository.existsById(phoneNumber)) {
+            return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
+        }
+
+        generateOtp(phoneNumber);
+
+        return ResponseEntity.ok(Map.of(
+                "status", "SUCCESS",
+                "message", "OTP sent successfully",
+                "phoneNumber", phoneNumber
+        ));
+    }
+
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(@RequestBody SignupRequest request) {
         String role = normalize(request.getRole());
@@ -70,65 +99,133 @@ public class AuthController {
                 "username", username, "role", role));
     }
 
-    @PostMapping("/login")
+    @PostMapping({"/login", "/driver/login", "/verify-otp"})
     public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials,
                                                       HttpServletRequest request) {
         if (credentials == null) {
             return error(HttpStatus.BAD_REQUEST, "credentials are required");
         }
-        String identifier = trim(credentials.get("username"));
-        if (identifier == null) identifier = trim(credentials.get("busId"));
-        if (identifier == null) identifier = trim(credentials.get("busNumber"));
+
         String phoneNumber = trim(credentials.get("phoneNumber"));
         if (phoneNumber == null) phoneNumber = trim(credentials.get("phone"));
-        if (identifier == null) {
-            return error(HttpStatus.BAD_REQUEST, "username/busId and password, or busId and phoneNumber, are required");
-        }
-        String requestedRole = normalize(credentials.get("role"));
-        final String loginIdentifier = identifier;
-        final String loginPhoneNumber = phoneNumber;
-        final String loginPassword = credentials.get("password");
 
-        // Driver login with phone number (or driver role check)
-        if (loginPhoneNumber != null && !"PASSENGER".equals(requestedRole)) {
-            if (!driverWhitelistRepository.existsById(loginPhoneNumber)) {
+        String otp = trim(credentials.get("otp"));
+        if (otp == null) otp = trim(credentials.get("code"));
+
+        String busCategory = trim(credentials.get("busCategory"));
+        if (busCategory == null) busCategory = trim(credentials.get("bus_category"));
+        if (busCategory == null) busCategory = trim(credentials.get("category"));
+
+        String requestedRole = normalize(credentials.get("role"));
+        String username = trim(credentials.get("username"));
+        if (username == null) username = trim(credentials.get("busId"));
+        if (username == null) username = trim(credentials.get("busNumber"));
+        String password = credentials.get("password");
+
+        // Driver login uses busCategory, phoneNumber, and otp
+        boolean isDriverLogin = phoneNumber != null || otp != null || "DRIVER".equals(requestedRole)
+                || (busCategory != null && password == null);
+
+        if (isDriverLogin) {
+            if (phoneNumber == null || phoneNumber.isEmpty()) {
+                return error(HttpStatus.BAD_REQUEST, "Phone number is required");
+            }
+            if (!driverWhitelistRepository.existsById(phoneNumber)) {
                 return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
             }
-            return authenticated(loginIdentifier, "DRIVER", "Driver", request);
+            if (otp == null || otp.isEmpty()) {
+                return error(HttpStatus.BAD_REQUEST, "OTP is required");
+            }
+            if (!"1234".equals(otp)) {
+                return error(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+            }
+
+            return authenticatedDriver(phoneNumber, busCategory, request);
         }
 
-        Optional<UserAccount> account = userAccountRepository.findByUsername(loginIdentifier)
-                .filter(value -> loginPassword != null && loginPassword.equals(value.getPassword()));
+        // Passenger login with username & password
+        if (username == null || password == null || password.isBlank()) {
+            return error(HttpStatus.BAD_REQUEST, "username and password are required");
+        }
+
+        Optional<UserAccount> account = userAccountRepository.findByUsername(username)
+                .filter(value -> password.equals(value.getPassword()));
         if (account.isPresent() && roleMatches(requestedRole, account.get().getRole())) {
-            if ("DRIVER".equalsIgnoreCase(account.get().getRole())) {
-                String accPhone = account.get().getPhoneNumber();
-                if (accPhone == null || !driverWhitelistRepository.existsById(accPhone.trim())) {
-                    return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
-                }
-            }
             return authenticated(account.get().getUsername(), account.get().getRole(),
                     account.get().getDisplayName(), request);
         }
 
-        // Admin-created driver accounts are stored in the legacy bus_drivers table.
-        if (!"PASSENGER".equals(requestedRole)) {
-            Optional<BusDriver> driver = busDriverRepository.findById(loginIdentifier)
-                    .filter(value -> loginPassword != null && loginPassword.equals(value.getPassword()));
-            if (driver.isPresent()) {
-                String driverPhone = driver.get().getPhoneNumber();
-                if (driverPhone == null || !driverWhitelistRepository.existsById(driverPhone.trim())) {
-                    return error(HttpStatus.FORBIDDEN, "Driver phone number is not whitelisted");
-                }
-                return authenticated(loginIdentifier, "DRIVER", driver.get().getDriverName(), request);
-            }
-        }
-        return error(HttpStatus.UNAUTHORIZED, "Invalid username/bus ID or password");
+        return error(HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request) {
         if (request.getSession(false) != null) request.getSession(false).invalidate();
         return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Logged out successfully"));
+    }
+
+    private ResponseEntity<Map<String, String>> authenticatedDriver(String phoneNumber,
+                                                                    String requestedBusCategory,
+                                                                    HttpServletRequest request) {
+        String busId = phoneNumber;
+        String driverName = "Driver";
+        String resolvedBusCategory = requestedBusCategory;
+
+        // Check if there is an existing account or bus driver record for this phone number
+        Optional<UserAccount> existingAccount = userAccountRepository.findAll().stream()
+                .filter(u -> phoneNumber.equals(u.getPhoneNumber()))
+                .findFirst();
+
+        if (existingAccount.isPresent()) {
+            UserAccount acc = existingAccount.get();
+            if (acc.getUsername() != null && !acc.getUsername().isBlank()) {
+                busId = acc.getUsername();
+            }
+            if (acc.getDisplayName() != null && !acc.getDisplayName().isBlank()) {
+                driverName = acc.getDisplayName();
+            }
+            if (resolvedBusCategory == null && acc.getBusCategory() != null) {
+                resolvedBusCategory = acc.getBusCategory();
+            }
+        } else {
+            Optional<BusDriver> existingDriver = busDriverRepository.findAll().stream()
+                    .filter(d -> phoneNumber.equals(d.getPhoneNumber()))
+                    .findFirst();
+            if (existingDriver.isPresent()) {
+                BusDriver d = existingDriver.get();
+                if (d.getBusId() != null && !d.getBusId().isBlank()) {
+                    busId = d.getBusId();
+                }
+                if (d.getDriverName() != null && !d.getDriverName().isBlank()) {
+                    driverName = d.getDriverName();
+                }
+                if (resolvedBusCategory == null && d.getBusCategory() != null) {
+                    resolvedBusCategory = d.getBusCategory();
+                }
+            }
+        }
+
+        var session = request.getSession(true);
+        session.setAttribute("authenticatedUser", busId);
+        session.setAttribute("role", "DRIVER");
+        session.setAttribute("phoneNumber", phoneNumber);
+        if (resolvedBusCategory != null) {
+            session.setAttribute("busCategory", resolvedBusCategory);
+        }
+
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("username", busId);
+        response.put("role", "DRIVER");
+        response.put("displayName", driverName);
+        response.put("busId", busId);
+        response.put("driverName", driverName);
+        response.put("phoneNumber", phoneNumber);
+        if (resolvedBusCategory != null) {
+            response.put("busCategory", resolvedBusCategory);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     private ResponseEntity<Map<String, String>> authenticated(String username, String role,
@@ -141,20 +238,6 @@ public class AuthController {
         response.put("username", username);
         response.put("role", role);
         response.put("displayName", displayName == null ? role : displayName);
-        if ("DRIVER".equals(role)) {
-            response.put("busId", username);
-            response.put("driverName", displayName == null ? "Driver" : displayName);
-            
-            // Try to find the busCategory from either the account or the driver record
-            userAccountRepository.findByUsername(username).ifPresent(acc -> {
-                if (acc.getBusCategory() != null) response.put("busCategory", acc.getBusCategory());
-            });
-            if (!response.containsKey("busCategory")) {
-                busDriverRepository.findById(username).ifPresent(d -> {
-                    if (d.getBusCategory() != null) response.put("busCategory", d.getBusCategory());
-                });
-            }
-        }
         return ResponseEntity.ok(response);
     }
 

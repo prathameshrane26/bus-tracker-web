@@ -3,6 +3,7 @@ package com.bustracker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -29,6 +30,12 @@ public class AdminAndWhitelistTest {
     @Autowired
     private BusDriverRepository busDriverRepository;
 
+    @Value("${admin.username:admin}")
+    private String adminUsername;
+
+    @Value("${admin.password:admin123}")
+    private String adminPassword;
+
     @BeforeEach
     void setup() {
         driverWhitelistRepository.deleteAll();
@@ -48,7 +55,7 @@ public class AdminAndWhitelistTest {
         // Valid credentials
         mockMvc.perform(post("/api/admin/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
+                .content("{\"username\":\"" + adminUsername + "\",\"password\":\"" + adminPassword + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
     }
@@ -69,7 +76,7 @@ public class AdminAndWhitelistTest {
         mockMvc.perform(post("/api/admin/login")
                 .session(session)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"admin\",\"password\":\"admin123\"}"))
+                .content("{\"username\":\"" + adminUsername + "\",\"password\":\"" + adminPassword + "\"}"))
                 .andExpect(status().isOk());
 
         // Add phone number to whitelist
@@ -102,55 +109,105 @@ public class AdminAndWhitelistTest {
     }
 
     @Test
-    void testDriverLoginEnforcesWhitelist() throws Exception {
+    void testDriverRequestOtp() throws Exception {
         String driverPhone = "9988776655";
         String nonWhitelistedPhone = "1122334455";
 
         // Whitelist driverPhone
         driverWhitelistRepository.save(new DriverWhitelist(driverPhone));
 
-        // 1. Driver phone-based login with non-whitelisted number should be 403 Forbidden
-        mockMvc.perform(post("/api/auth/login")
+        // 1. Request OTP with missing phone number -> 400 Bad Request
+        mockMvc.perform(post("/api/auth/request-otp")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"busId\":\"BUS-101\",\"phoneNumber\":\"" + nonWhitelistedPhone + "\",\"role\":\"DRIVER\"}"))
+                .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value("ERROR"));
+
+        // 2. Request OTP with non-whitelisted phone -> 403 Forbidden
+        mockMvc.perform(post("/api/auth/request-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phoneNumber\":\"" + nonWhitelistedPhone + "\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value("ERROR"));
 
-        // 2. Driver phone-based login with whitelisted number should succeed
+        // 3. Request OTP with whitelisted phone -> 200 OK
+        mockMvc.perform(post("/api/auth/request-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phoneNumber\":\"" + driverPhone + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.phoneNumber").value(driverPhone));
+    }
+
+    @Test
+    void testDriverLoginEnforcesWhitelistAndOtp() throws Exception {
+        String driverPhone = "9988776655";
+        String nonWhitelistedPhone = "1122334455";
+
+        // Whitelist driverPhone
+        driverWhitelistRepository.save(new DriverWhitelist(driverPhone));
+
+        // 1. Driver login with non-whitelisted number -> 403 Forbidden
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"busId\":\"BUS-101\",\"phoneNumber\":\"" + driverPhone + "\",\"role\":\"DRIVER\"}"))
+                .content("{\"phoneNumber\":\"" + nonWhitelistedPhone + "\",\"busCategory\":\"KTCL\",\"otp\":\"1234\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value("ERROR"));
+
+        // 2. Driver login with whitelisted number and missing OTP -> 400 Bad Request
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phoneNumber\":\"" + driverPhone + "\",\"busCategory\":\"KTCL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value("ERROR"));
+
+        // 3. Driver login with whitelisted number and incorrect OTP -> 401 Unauthorized
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phoneNumber\":\"" + driverPhone + "\",\"busCategory\":\"KTCL\",\"otp\":\"9999\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value("ERROR"))
+                .andExpect(jsonPath("$.message").value("Invalid OTP"));
+
+        // 4. Driver login with whitelisted number and valid OTP 1234 -> 200 OK
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phoneNumber\":\"" + driverPhone + "\",\"busCategory\":\"KTCL\",\"otp\":\"1234\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.role").value("DRIVER"))
-                .andExpect(jsonPath("$.busId").value("BUS-101"));
+                .andExpect(jsonPath("$.busCategory").value("KTCL"))
+                .andExpect(jsonPath("$.phoneNumber").value(driverPhone));
 
-        // 3. Driver signup with non-whitelisted number should be 403 Forbidden
+        // 5. Driver signup with non-whitelisted number should be 403 Forbidden
         mockMvc.perform(post("/api/auth/signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"BUS-202\",\"password\":\"pass123\",\"role\":\"DRIVER\",\"phoneNumber\":\"" + nonWhitelistedPhone + "\"}"))
                 .andExpect(status().isForbidden());
 
-        // 4. Driver signup with whitelisted number should succeed
+        // 6. Driver signup with whitelisted number should succeed
         mockMvc.perform(post("/api/auth/signup")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"BUS-202\",\"password\":\"pass123\",\"role\":\"DRIVER\",\"phoneNumber\":\"" + driverPhone + "\"}"))
+                .content("{\"username\":\"BUS-202\",\"password\":\"pass123\",\"role\":\"DRIVER\",\"phoneNumber\":\"" + driverPhone + "\",\"busCategory\":\"Private\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("SUCCESS"));
 
-        // 5. Driver username/password login should succeed with whitelisted phone
+        // 7. Driver login using existing account phone + OTP 1234 should pick up details
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"BUS-202\",\"password\":\"pass123\",\"role\":\"DRIVER\"}"))
+                .content("{\"phoneNumber\":\"" + driverPhone + "\",\"otp\":\"1234\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"));
+                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.role").value("DRIVER"))
+                .andExpect(jsonPath("$.busId").value("BUS-202"))
+                .andExpect(jsonPath("$.busCategory").value("Private"));
 
-        // Now remove phone from whitelist and try logging in again with username/password
+        // Now remove phone from whitelist and try logging in again
         driverWhitelistRepository.deleteById(driverPhone);
 
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"BUS-202\",\"password\":\"pass123\",\"role\":\"DRIVER\"}"))
+                .content("{\"phoneNumber\":\"" + driverPhone + "\",\"otp\":\"1234\"}"))
                 .andExpect(status().isForbidden());
     }
 
