@@ -1,0 +1,39 @@
+{
+  "startPoints": [
+    "Panaji",
+    "Mapusa",
+    "Ponda",
+    "Bicholim",
+    "Valpoi",
+    "Sanquelim",
+    "Advoi",
+    "Margao",
+    "Vasco da Gama",
+    "Calangute"
+  ],
+  "destinations": [
+    "Panaji",
+    "Mapusa",
+    "Ponda",
+    "Bicholim",
+    "Valpoi",
+    "Sanquelim",
+    "Advoi",
+    "Margao",
+    "Vasco da Gama",
+    "Calangute"
+  ],
+  "routes": [
+    "Panaji-Mapusa-Bicholim-Sanquelim",
+    "Panaji-Mapusa-Bicholim-Sanquelim-Valpoi",
+    "Panaji-Marcel-Sanquelim-Valpoi",
+    "Bicholim-Sanquelim-Honda-Ponda",
+    "Bicholim-Mapusa-Panaji",
+    "Panaji-Marcel-Sanquelim-Advoi",
+    "Panaji-Agassaim-Margao",
+    "Panaji-Bambolim-Vasco da Gama",
+    "Panaji-Porvorim-Calangute",
+    "Panaji-Old Goa-Ponda",
+    "Margao-Ponda"
+  ]
+}

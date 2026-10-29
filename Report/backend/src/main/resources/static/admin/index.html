@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracker Admin Panel</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        body {
+            background-color: #f0f2f5;
+            color: #1a1a1a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        h1, h2 {
+            margin-bottom: 1.5rem;
+            color: #1a365d;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        input[type="text"], input[type="password"], input[type="tel"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            border-color: #3182ce;
+        }
+        button {
+            width: 100%;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2b6cb0;
+        }
+        button.secondary {
+            background-color: #e2e8f0;
+            color: #4a5568;
+            margin-top: 0.5rem;
+        }
+        button.secondary:hover {
+            background-color: #cbd5e0;
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
+            display: none;
+        }
+        .alert.error {
+            display: block;
+            background-color: #fed7d7;
+            color: #9b2c2c;
+            border: 1px solid #feb2b2;
+        }
+        .alert.success {
+            display: block;
+            background-color: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .whitelist-list {
+            list-style: none;
+            margin-top: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .whitelist-item {
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .whitelist-item:last-child {
+            border-bottom: none;
+        }
+        .btn-delete {
+            width: auto;
+            background-color: #e53e3e;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.85rem;
+        }
+        .btn-delete:hover {
+            background-color: #c53030;
+        }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .header-bar h2 {
+            margin-bottom: 0;
+        }
+        .btn-logout {
+            width: auto;
+            background-color: #718096;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login Panel -->
+    <div id="login-section" class="container">
+        <h1>Admin Login</h1>
+        <div id="login-alert" class="alert"></div>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="admin-username">Username</label>
+                <input type="text" id="admin-username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="admin-password">Password</label>
+                <input type="password" id="admin-password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" id="login-btn">Login</button>
+        </form>
+    </div>
+
+    <!-- Whitelist Management Panel -->
+    <div id="admin-dashboard" class="container" style="display: none;">
+        <div class="header-bar">
+            <h2>Driver Whitelist</h2>
+            <button class="btn-logout" id="logout-btn">Logout</button>
+        </div>
+
+        <div id="dashboard-alert" class="alert"></div>
+
+        <form id="whitelist-form">
+            <div class="form-group">
+                <label for="phone-number">Driver Phone Number</label>
+                <input type="tel" id="phone-number" name="phoneNumber" placeholder="e.g. +1234567890 or 9876543210" required>
+            </div>
+            <button type="submit" id="add-whitelist-btn">Add to Whitelist</button>
+        </form>
+
+        <h3 style="margin-top: 1.5rem; font-size: 1.1rem; color: #2d3748;">Whitelisted Driver Phone Numbers</h3>
+        <ul id="whitelist-items" class="whitelist-list">
+            <!-- Dynamic entries -->
+        </ul>
+    </div>
+
+    <script>
+        const loginSection = document.getElementById('login-section');
+        const adminDashboard = document.getElementById('admin-dashboard');
+        const loginForm = document.getElementById('login-form');
+        const whitelistForm = document.getElementById('whitelist-form');
+        const loginAlert = document.getElementById('login-alert');
+        const dashboardAlert = document.getElementById('dashboard-alert');
+        const whitelistItems = document.getElementById('whitelist-items');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        function showAlert(element, message, isError = false) {
+            element.textContent = message;
+            element.className = 'alert ' + (isError ? 'error' : 'success');
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/admin/status');
+                const data = await res.json();
+                if (data.authenticated) {
+                    showDashboard();
+                } else {
+                    showLogin();
+                }
+            } catch (err) {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            loginSection.style.display = 'block';
+            adminDashboard.style.display = 'none';
+        }
+
+        function showDashboard() {
+            loginSection.style.display = 'none';
+            adminDashboard.style.display = 'block';
+            loadWhitelist();
+        }
+
+        async function loadWhitelist() {
+            try {
+                const res = await fetch('/api/admin/whitelist');
+                if (res.status === 401) {
+                    showLogin();
+                    return;
+                }
+                const list = await res.json();
+                whitelistItems.innerHTML = '';
+                if (!list || list.length === 0) {
+                    whitelistItems.innerHTML = '<li class="whitelist-item" style="color: #718096; justify-content: center;">No phone numbers whitelisted yet</li>';
+                    return;
+                }
+                list.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'whitelist-item';
+                    
+                    const span = document.createElement('span');
+                    span.textContent = item.phoneNumber;
+                    
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-delete';
+                    delBtn.textContent = 'Remove';
+                    delBtn.onclick = () => removePhone(item.phoneNumber);
+
+                    li.appendChild(span);
+                    li.appendChild(delBtn);
+                    whitelistItems.appendChild(li);
+                });
+            } catch (err) {
+                showAlert(dashboardAlert, 'Failed to load whitelist: ' + err.message, true);
+            }
+        }
+
+        async function removePhone(phoneNumber) {
+            try {
+                const res = await fetch('/api/admin/whitelist/' + encodeURIComponent(phoneNumber), {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(dashboardAlert, data.message || 'Removed successfully', false);
+                    loadWhitelist();
+                } else {
+                    showAlert(dashboardAlert, data.message || 'Failed to remove', true);
+                }
+            } catch (err) {
+                showAlert(dashboardAlert, 'Error: ' + err.message, true);
+            }
+        }
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showDashboard();
+                } else {
+                    showAlert(loginAlert, data.message || 'Login failed', true);
+                }
+            } catch (err) {
+                showAlert(loginAlert, 'Network error: ' + err.message, true);
+            }
+        });
+
+        whitelistForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phoneNumberInput = document.getElementById('phone-number');
+            const phoneNumber = phoneNumberInput.value.trim();
+
+            if (!phoneNumber) return;
+
+            try {
+                const res = await fetch('/api/admin/whitelist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(dashboardAlert, data.message || 'Phone number added to whitelist', false);
+                    phoneNumberInput.value = '';
+                    loadWhitelist();
+                } else {
+                    showAlert(dashboardAlert, data.message || 'Failed to add phone number', true);
+                }
+            } catch (err) {
+                showAlert(dashboardAlert, 'Network error: ' + err.message, true);
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+            } catch (e) {}
+            showLogin();
+        });
+
+        checkStatus();
+    </script>
+</body>
+</html>
